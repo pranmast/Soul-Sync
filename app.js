@@ -242,28 +242,44 @@ const GEMINI_MODELS = [
 
 // ✅ FIX: Use Gemini's proper systemInstruction field (not a fake user/model pair)
 // ✅ FIX: Use a compatible structure for v1 models
-async function callGemini(contents) {
-    // We stick to v1/gemini-1.5-flash as it's the most stable for your key
-    const modelPath = "v1/models/gemini-1.5-flash";
-    
-    try {
-        const res = await fetch(
-            `https://generativelanguage.googleapis.com/${modelPath}:generateContent?key=${state.keys.gemini}`,
-            {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ contents }) // Removed system_instruction from here
-            }
-        );
-        const data = await res.json();
-        
-        if (!res.ok) { 
-            console.warn("Gemini failed:", data.error?.message); 
-            throw new Error(data.error?.message);
+// ─── 8. Gemini AI — The Final Working Config ─────────────────────────────────
+async function callGemini(contents, systemInstruction) {
+    // We use v1beta because your key requires it, but with the correct model string
+    const modelPath = "v1beta/models/gemini-1.5-flash";
+    const url = `https://generativelanguage.googleapis.com/${modelPath}:generateContent?key=${state.keys.gemini}`;
+
+    const body = { 
+        contents: contents,
+        // ✅ CRITICAL FIX: v1beta MUST use 'systemInstruction' (CamelCase)
+        systemInstruction: { 
+            parts: [{ text: systemInstruction }] 
+        },
+        generationConfig: {
+            temperature: 0.7,
+            // Forces JSON output so parsing doesn't fail
+            responseMimeType: "application/json" 
         }
-        
+    };
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+
+        if (!res.ok) {
+            console.error("Gemini Details:", data);
+            throw new Error(data.error?.message || "API connection failed");
+        }
+
+        if (!data.candidates?.[0]) throw new Error("No response from AI");
+
         return data.candidates[0].content.parts[0].text;
     } catch (e) {
+        console.error("Fetch Error:", e);
         throw e;
     }
 }
