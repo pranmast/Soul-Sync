@@ -1,5 +1,6 @@
 /**
- * Soul-Sync 2026: Thane Friend Edition (Bug Fixed)
+ * Soul-Sync 2026: Thane Friend Edition
+ * Reverted to stable Sarvam STT logic
  */
 
 let state = {
@@ -18,7 +19,7 @@ const mediaCard = document.getElementById('media-card');
 const mediaContent = document.getElementById('media-content');
 
 function init() {
-    if (!state.keys.gemini || state.keys.gemini === '00') {
+    if (!state.keys.gemini || state.keys.gemini === '00' || !state.keys.sarvam) {
         document.getElementById('settings-modal').classList.remove('hidden');
     }
     updateUI();
@@ -28,20 +29,16 @@ async function handleVoice() {
     if (state.isRecording) return;
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        // Use standard webm/opus for broad compatibility
-        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
+        const recorder = new MediaRecorder(stream);
         let chunks = [];
 
         recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => {
-            const blob = new Blob(chunks, { type: 'audio/webm' });
-            processAudio(blob);
-        };
+        recorder.onstop = () => processAudio(new Blob(chunks, { type: 'audio/webm' }));
 
         recorder.start();
         state.isRecording = true;
         voiceBtn.classList.add('recording');
-        transcriptEl.textContent = "ऐकतोय... (Listening)";
+        transcriptEl.textContent = "Listening...";
 
         voiceBtn.onclick = () => {
             recorder.stop();
@@ -49,52 +46,50 @@ async function handleVoice() {
             voiceBtn.classList.remove('recording');
             voiceBtn.onclick = handleVoice;
         };
-    } catch (e) { alert("Mic required for our chat!"); }
+    } catch (e) { alert("Mic required."); }
 }
 voiceBtn.onclick = handleVoice;
 
+// REVERTED: Using the stable STT logic
 async function processAudio(blob) {
     const formData = new FormData();
-    // Correcting the file naming and field for Sarvam v3
-    formData.append('file', blob, 'input_audio.webm');
-    formData.append('model', 'saaras:v1'); // v1 is often more stable for 'mul' detection
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'saaras:v1'); 
+    // If you want it to detect between English/Hindi/Marathi, 'mul' is used
     formData.append('language_code', 'mul'); 
 
     try {
-        const res = await fetch('https://api.sarvam.ai/speech-to-text', {
+        const response = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
-            headers: { 
-                'api-subscription-key': state.keys.sarvam 
-                // Note: Do NOT set Content-Type header manually with FormData
-            },
+            headers: { 'api-subscription-key': state.keys.sarvam },
             body: formData
         });
 
-        if (!res.ok) throw new Error(`STT Error: ${res.status}`);
-        
-        const data = await res.json();
+        if (!response.ok) throw new Error(`Status: ${response.status}`);
+
+        const data = await response.json();
         if (data.transcript) {
-            transcriptEl.innerHTML = `<span style="color:var(--accent)">तुम्ही:</span> ${data.transcript}`;
+            transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> ${data.transcript}`;
             state.history.push({ role: "user", content: data.transcript });
             getFriendResponse(data.transcript);
         }
-    } catch (e) { 
-        console.error(e);
-        transcriptEl.textContent = "माफ करा, आवाज नीट ऐकू आला नाही. (Audio processing failed)"; 
+    } catch (err) {
+        console.error("Sarvam Error:", err);
+        transcriptEl.textContent = "Error with voice processing. Check your Sarvam Key.";
     }
 }
 
 async function getFriendResponse(userText) {
-    transcriptEl.textContent = "विचार करतोय... (Thinking)";
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${state.keys.gemini}`;
 
-    const systemPrompt = `You are Soul-Sync, a chill friend from Thane. 
-    1. Reply in the EXACT language user uses (Marathi, Hindi, or English). 
-    2. Don't be a robot. If they ask about Thane events or weather, give real info.
-    3. If they want suggestions, show a YouTube link or a recipe in the media card.
-    4. Keep it conversational. No "Question 1...". 
-    5. If they say "Ok bye", wish them well.
-    OUTPUT JSON: {"friend_reply": "text", "detected_mbti": "XXXX", "media": {"type": "youtube/weather/event", "title": "name", "link_or_info": "data"}}`;
+    // Thane Personal Context: Upvan Lake, Viviana, Gaimukh, Weather etc.
+    const systemPrompt = `You are Soul-Sync, a helpful and personal friend from Thane, Maharashtra.
+    1. Reply in the EXACT same language the user spoke (Marathi, Hindi, or English).
+    2. Be informative about Thane weather, locations, and events.
+    3. If they ask for help, suggest YouTube videos or recipes in the media card.
+    4. Stay on subject until they say "Ok bye".
+    5. No questionnaire style—keep it a natural conversation.
+    OUTPUT JSON: {"friend_reply": "...", "detected_mbti": "XXXX", "media": {"type": "...", "title": "...", "link_or_info": "..."}}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -105,14 +100,13 @@ async function getFriendResponse(userText) {
         const data = await response.json();
         const res = JSON.parse(data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
 
-        // Update UI
-        if (res.detected_mbti && res.detected_mbti !== "Analyzing") {
+        if (res.detected_mbti !== "Analyzing") {
             state.mbti = res.detected_mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
 
-        if (res.media) {
+        if (res.media && res.media.title) {
             mediaCard.classList.remove('hidden');
             mediaContent.innerHTML = `<div style="color:var(--accent); font-weight:bold;">${res.media.title}</div><div>${res.media.link_or_info}</div>`;
         }
@@ -120,11 +114,9 @@ async function getFriendResponse(userText) {
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${res.friend_reply}`;
         state.history.push({ role: "assistant", content: res.friend_reply });
 
-        // TTS
         const speech = new SpeechSynthesisUtterance(res.friend_reply);
         window.speechSynthesis.speak(speech);
-
-    } catch (e) { transcriptEl.textContent = "AI connection dropped."; }
+    } catch (e) { transcriptEl.textContent = "AI connection error."; }
 }
 
 function updateUI() {
