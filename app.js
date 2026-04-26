@@ -24,6 +24,7 @@ const descEl = document.getElementById('mbti-desc');
 const traitsEl = document.getElementById('traits-list');
 const settingsModal = document.getElementById('settings-modal');
 
+// ─── INIT & UI ───
 function init() {
     if (!state.keys.gemini || !state.keys.sarvam) {
         settingsModal.classList.remove('hidden');
@@ -111,59 +112,79 @@ async function processAudio(blob) {
     } catch (e) { transcriptEl.textContent = "Sarvam STT Error."; }
 }
 
-// ─── AI BRAIN (Fixed Schema) ───
+// ─── AI BRAIN (The "No-More-404" Edition) ───
 async function callGemini(contents, systemInstruction) {
-    // Standardizing on v1beta for better system_instruction support
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
-    
-    const body = { 
-        contents: contents,
-        systemInstruction: { // camelCase for v1beta
-            parts: [{ text: systemInstruction }]
-        },
-        generationConfig: {
-            temperature: 0.7,
-            topP: 0.95,
-            topK: 40,
-            maxOutputTokens: 1024,
-            responseMimeType: "application/json",
-        }
-    };
-    
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
+    const MODEL_NAMES = [
+        "gemini-1.5-flash-latest",
+        "gemini-1.5-flash",
+        "gemini-2.0-flash-exp",
+        "gemini-pro"
+    ];
 
-    const data = await res.json();
-    if (!res.ok) {
-        console.error("Gemini Details:", data);
-        throw new Error(data.error?.message || "API Error");
+    let lastError = "";
+
+    for (const modelName of MODEL_NAMES) {
+        try {
+            console.log(`Trying model: ${modelName}...`);
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${state.keys.gemini}`;
+            
+            const body = { 
+                contents: contents,
+                systemInstruction: { 
+                    parts: [{ text: systemInstruction }]
+                },
+                generationConfig: {
+                    temperature: 0.7,
+                    responseMimeType: "application/json",
+                }
+            };
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            const data = await res.json();
+
+            if (res.status === 404) {
+                console.warn(`${modelName} not found, trying next...`);
+                continue; 
+            }
+
+            if (!res.ok) {
+                console.error(`Error with ${modelName}:`, data);
+                lastError = data.error?.message || "Unknown error";
+                continue;
+            }
+
+            return data.candidates[0].content.parts[0].text;
+
+        } catch (e) {
+            console.error(`Fetch failed for ${modelName}:`, e);
+            lastError = e.message;
+        }
     }
-    return data.candidates[0].content.parts[0].text;
+    
+    throw new Error(`All models failed. Last error: ${lastError}`);
 }
 
 async function getFriendResponse(userText) {
     if (!userText.trim()) return;
 
     const systemPrompt = `You are Soul-Sync, a friend from Thane. 
-    Language: Match the user (Marathi/Hindi/English).
-    Output: JSON only. Format: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
+    Match the user's language (Marathi/Hindi/English).
+    Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
-    // Ensure state.history is valid and role is always 'user' or 'model'
-    const validHistory = state.history.filter(h => h.parts && h.parts[0].text);
-    const contents = [...validHistory, { role: "user", parts: [{ text: userText }] }];
+    const contents = [...state.history, { role: "user", parts: [{ text: userText }] }];
 
     try {
         const raw = await callGemini(contents, systemPrompt);
         const result = JSON.parse(raw);
 
-        // Update History
         state.history.push({ role: "user", parts: [{ text: userText }] });
         state.history.push({ role: "model", parts: [{ text: result.reply }] });
 
-        // Update MBTI
         if (result.mbti && result.mbti !== "Analyzing") {
             state.mbti = result.mbti;
             localStorage.setItem('user_mbti', state.mbti);
