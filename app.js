@@ -53,8 +53,8 @@ let state = {
     transcript: '',
     isRecording: false,
     keys: {
-        gemini: localStorage.getItem('gemini_key') || 'AIzaSyBsB6zfOcD-yN6f5YPxszmSg3NQeqhPSSc',
-        sarvam: localStorage.getItem('sarvam_key') || 'sk_mcdiygii_YIQ5sLU0ea5dvV2XwakRPCIp'
+        gemini: localStorage.getItem('gemini_key') || '00',
+        sarvam: localStorage.getItem('sarvam_key') || '00'
     }
 };
 // UI Elements
