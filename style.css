@@ -69,8 +69,26 @@ h1 {
 /* Voice Button */
 .voice-btn-container {
     display: flex;
-    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
     margin: 30px 0;
+}
+/* Gender Toggle Pill */
+.gender-toggle {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1.5px solid var(--accent);
+    border-radius: 20px;
+    padding: 5px 18px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    color: var(--text-main);
+    transition: all 0.3s ease;
+    user-select: none;
+}
+.gender-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(1.05);
 }
 .voice-btn {
     width: 80px;
@@ -164,32 +182,4 @@ input {
     cursor: pointer;
     width: 100%;
     font-weight: 600;
-}
-.media-grid {
-    margin-top: 10px;
-    padding: 10px;
-    background: rgba(0, 0, 0, 0.2);
-    border-radius: 12px;
-    font-size: 0.85rem;
-}
-
-.header-controls {
-    margin-top: -10px;
-    margin-bottom: 20px;
-}
-
-/* Ensure long text doesn't break the glass cards */
-.subtitle {
-    word-wrap: break-word;
-}
-/* Pulse animation for the recording state */
-.voice-btn.recording {
-    animation: pulse-ring 1.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-    background: linear-gradient(45deg, #ef4444, #f87171); /* Turns reddish while recording */
-}
-
-@keyframes pulse-ring {
-    0% { transform: scale(.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-    70% { transform: scale(1); box-shadow: 0 0 0 20px rgba(239, 68, 68, 0); }
-    100% { transform: scale(.9); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
