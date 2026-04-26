@@ -1,6 +1,7 @@
 /**
- * Soul-Sync: MBTI & Partnership Analysis
- * Core Logic: Sarvam AI (STT) + Google Gemini 1.5 Flash (Analysis)
+ * Soul-Sync 2026 Edition
+ * STT: Sarvam AI (saaras:v3)
+ * LLM: Gemini 3.1 Flash (Free Tier)
  */
 
 // 1. MBTI and Partnership Traits Data
@@ -8,21 +9,21 @@ const PERSONALITY_DATA = {
     "INTP": {
         title: "The Architect",
         desc: "Logical, independent, and non-conformist. You value deep intellectual connection.",
-        husband: "As a husband, you are the 'Space-Giver'. You don't demand traditional roles and respect autonomy. You solve problems with logic rather than emotion.",
+        husband: "As a husband, you are the 'Space-Giver'. You don't demand traditional roles and solve problems with logic rather than emotion.",
         wife: "As a wife, you are 'The Independent Partner'. You value your own projects and need a partner who respects a quiet, focused house.",
         compatibility: ["INFJ", "ENFJ", "ENTP"]
     },
     "INTJ": {
         title: "The Mastermind",
         desc: "Strategic, private, and fiercely ambitious. You see the world as a chess board.",
-        husband: "The 'Visionary Partner'. You provide deep security through foresight and long-term family strategy.",
+        husband: "The 'Visionary Partner'. You aren't interested in trivial talk. You lead the family with long-term strategy and security.",
         wife: "The 'Independent Thinker'. You value efficiency and intellectual competence. You are a low-maintenance but high-loyalty partner.",
         compatibility: ["ENFP", "ENTP", "INFJ"]
     },
     "INFP": {
         title: "The Mediator",
         desc: "Poetic, kind, and altruistic. You seek a soul-deep connection.",
-        husband: "The 'Gentle Soul'. You are non-judgmental and supportive, bringing idealism and magic to the marriage.",
+        husband: "The 'Gentle Soul'. You are non-judgmental and supportive of your partner's wildest dreams, bringing idealism to the marriage.",
         wife: "The 'Dreamer Wife'. You create a warm, creative home environment where emotions are valued over rules.",
         compatibility: ["ENFJ", "ENTJ", "INFJ"]
     },
@@ -37,7 +38,7 @@ const PERSONALITY_DATA = {
         title: "The Commander",
         desc: "Decisive, efficient, and natural-born leaders.",
         husband: "The 'Reliable Leader'. You take charge of the family's success. You are the ultimate provider and protector.",
-        wife: "The 'Power Partner'. You manage the household and career with precision, seeking an equal in ambition.",
+        wife: "The 'Power Partner'. You manage the household and career with precision. You value a partner who is your equal in ambition.",
         compatibility: ["INFP", "INTP", "ENFP"]
     },
     "ENFJ": {
@@ -69,10 +70,10 @@ const descEl = document.getElementById('mbti-desc');
 const traitsEl = document.getElementById('traits-list');
 const settingsModal = document.getElementById('settings-modal');
 
-// 4. Initialization Logic
+// 4. Initialize
 function init() {
-    console.log("Initializing Soul-Sync...");
-    if (!state.keys.gemini || state.keys.gemini === '00' || !state.keys.sarvam || state.keys.sarvam === '00') {
+    console.log("Initializing Soul-Sync 2026...");
+    if (!state.keys.gemini || !state.keys.sarvam || state.keys.gemini === '00') {
         settingsModal.classList.remove('hidden');
     } else {
         settingsModal.classList.add('hidden');
@@ -81,13 +82,7 @@ function init() {
 }
 
 function updateUI() {
-    const data = PERSONALITY_DATA[state.mbti] || {
-        title: "Analyzing...",
-        desc: "Speak to Soul-Sync to uncover your traits.",
-        husband: "Awaiting analysis.",
-        compatibility: ["Searching..."]
-    };
-    
+    const data = PERSONALITY_DATA[state.mbti] || PERSONALITY_DATA["INTP"];
     typeEl.textContent = state.mbti;
     descEl.textContent = data.desc;
     
@@ -105,19 +100,14 @@ function updateUI() {
     });
 }
 
-// 5. Settings Handler
+// 5. Settings Save
 const settingsForm = document.getElementById('settings-form');
 if (settingsForm) {
     settingsForm.addEventListener('submit', (e) => {
         e.preventDefault();
-        let gKey = document.getElementById('gemini-key').value.trim();
-        let sKey = document.getElementById('sarvam-key').value.trim();
+        const gKey = document.getElementById('gemini-key').value.trim();
+        const sKey = document.getElementById('sarvam-key').value.trim();
         
-        if (gKey.startsWith('sk_') || sKey.startsWith('AIza')) {
-            alert("⚠️ Detected Swapped Keys! Please check and swap them.");
-            return;
-        }
-
         if (gKey && sKey) {
             localStorage.setItem('gemini_key', gKey);
             localStorage.setItem('sarvam_key', sKey);
@@ -130,7 +120,7 @@ if (settingsForm) {
     });
 }
 
-// 6. Voice & Audio Processing
+// 6. Voice Processing
 function speak(text) {
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-IN';
@@ -154,34 +144,29 @@ async function startRecording() {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
         mediaRecorder = new MediaRecorder(stream);
         audioChunks = [];
-        mediaRecorder.ondataavailable = (event) => audioChunks.push(event.data);
-        mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-            processAudio(audioBlob);
-        };
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => processAudio(new Blob(audioChunks, { type: 'audio/webm' }));
         mediaRecorder.start();
         state.isRecording = true;
         voiceBtn.classList.add('recording');
         transcriptEl.textContent = "Listening...";
     } catch (err) {
-        alert("Microphone required for analysis.");
+        alert("Microphone access denied.");
     }
 }
 
 function stopRecording() {
-    if (mediaRecorder && state.isRecording) {
-        mediaRecorder.stop();
-        state.isRecording = false;
-        voiceBtn.classList.remove('recording');
-        transcriptEl.textContent = "Transcribing voice...";
-    }
+    mediaRecorder.stop();
+    state.isRecording = false;
+    voiceBtn.classList.remove('recording');
+    transcriptEl.textContent = "Processing audio...";
 }
 
 async function processAudio(blob) {
     const formData = new FormData();
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'saaras:v3'); 
-    formData.append('language_code', 'mr-IN'); // Supports Marathi/English mix
+    formData.append('language_code', 'mr-IN'); 
 
     try {
         const response = await fetch('https://api.sarvam.ai/speech-to-text', {
@@ -196,23 +181,22 @@ async function processAudio(blob) {
             analyzePersonality();
         }
     } catch (err) {
-        transcriptEl.textContent = "Transcription error. Please check Sarvam key.";
+        transcriptEl.textContent = "STT Error. Check Sarvam key.";
     }
 }
 
-// 7. Gemini Personality Analysis (Free Tier Flash)
+// 7. Core Analysis Logic (The 2026 Fix)
 async function analyzePersonality() {
-    transcriptEl.textContent = "Soul-Sync is analyzing your psyche...";
+    transcriptEl.textContent = "Soul-Sync is analyzing...";
     
-    const prompt = `You are Soul-Sync AI, an expert in psychological type theory and MBTI.
-    Analyze the user's personality based on this history: ${JSON.stringify(state.history)}.
-    
-    Task: Respond warmly, provide a brief insight into their traits, and ask ONE follow-up question to refine the MBTI.
-    Constraint: Return ONLY a raw JSON object with these keys: "response", "next_question", "detected_mbti".
-    Format: {"response": "...", "next_question": "...", "detected_mbti": "XXXX or Analyzing"}`;
+    // Using the 2026 stable alias to avoid 404s
+    const MODEL_ID = "gemini-flash-latest"; 
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${state.keys.gemini}`;
 
-    // Targeting Gemini 1.5 Flash Free Tier
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
+    const prompt = `You are Soul-Sync AI, a specialist in psychological theory. 
+    Analyze history: ${JSON.stringify(state.history)}. 
+    Respond warmly with psychological depth, then ask ONE follow-up question.
+    REQUIRED JSON FORMAT: {"response": "...", "next_question": "...", "detected_mbti": "XXXX or Analyzing"}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -221,18 +205,19 @@ async function analyzePersonality() {
             body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
         });
 
-        if (response.status === 429) {
-            transcriptEl.textContent = "Rate limit reached (15/min). Please wait 30 seconds.";
-            return;
+        const data = await response.json();
+        
+        if (!response.ok) {
+            if (response.status === 429) throw new Error("Rate limit hit (15 req/min). Wait 30s.");
+            throw new Error(data.error?.message || "Gemini Error");
         }
 
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.error?.message || "Gemini API Error");
-
-        // Robust parsing to strip potential markdown code blocks
-        let rawText = data.candidates[0].content.parts[0].text;
-        let cleanJson = rawText.replace(/```json|```/gi, '').trim();
-        const result = JSON.parse(cleanJson);
+        const rawText = data.candidates[0].content.parts[0].text;
+        // Extract JSON block even if AI adds markdown or prose
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("Invalid response format from AI.");
+        
+        const result = JSON.parse(jsonMatch[0]);
 
         if (result.detected_mbti && result.detected_mbti !== "Analyzing") {
             state.mbti = result.detected_mbti;
@@ -240,14 +225,14 @@ async function analyzePersonality() {
             updateUI();
         }
 
-        const fullResponse = `${result.response} ${result.next_question}`;
-        transcriptEl.innerHTML = `<strong>Soul-Sync:</strong> ${fullResponse}`;
-        state.history.push({ role: "assistant", content: fullResponse });
-        speak(fullResponse);
+        const fullText = `${result.response} ${result.next_question}`;
+        transcriptEl.innerHTML = `<strong>Soul-Sync:</strong> ${fullText}`;
+        state.history.push({ role: "assistant", content: fullText });
+        speak(fullText);
 
     } catch (err) {
         console.error(err);
-        transcriptEl.textContent = `Analysis failed: ${err.message}`;
+        transcriptEl.textContent = `Error: ${err.message}`;
     }
 }
 
