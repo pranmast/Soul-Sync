@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soul-Sync | AI Partner Compatibility</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Soul-Sync AI</h1>
+            <p class="subtitle">Finding your life partner through logic & vibration.</p>
+        </header>
+        <!-- Main Dashboard -->
+        <main id="dashboard">
+            <div class="card profile-card">
+                <div class="label">My Personality Type</div>
+                <div class="type-display">
+                    <div id="mbti-type" class="mbti-badge">Analyzing...</div>
+                    <p id="mbti-desc" class="subtitle">Start a conversation to find your type.</p>
+                </div>
+            </div>
+            <div class="card traits-card">
+                <div class="label">Husband/Wife Qualities</div>
+                <div id="traits-list" class="traits-content">
+                    <p class="subtitle">Complete your assessment to unlock your partner profile.</p>
+                </div>
+            </div>
+            <div class="voice-btn-container">
+                <button id="voice-btn" class="voice-btn">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="card assessment-card">
+                <div class="label">Live Transcript</div>
+                <div id="transcript" class="subtitle" style="font-style: italic;">"Wait for voice input..."</div>
+            </div>
+            <div class="card compatibility-card hidden" id="compatibility-section">
+                <div class="label">Partner Compatibility</div>
+                <div class="meter-bg"><div id="comp-meter" class="meter-fill"></div></div>
+                <p id="comp-summary" class="subtitle">Sync with a partner to see results.</p>
+            </div>
+        </main>
+        <!-- Settings Modal (Keys) -->
+        <div id="settings-modal" class="hidden">
+            <div class="card" style="width: 90%; max-width: 400px;">
+                <h2 style="margin-bottom: 20px;">AI Configuration</h2>
+                <div class="input-group">
+                    <label>Google Gemini Key</label>
+                    <input type="password" id="gemini-key" placeholder="Paste Gemini Key">
+                </div>
+                <div class="input-group">
+                    <label>Sarvam AI Key</label>
+                    <input type="password" id="sarvam-key" placeholder="Paste Sarvam Key">
+                </div>
+                <button id="save-settings" class="btn-primary">Save & Initialize</button>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
