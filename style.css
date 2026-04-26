@@ -125,7 +125,7 @@ h1 {
     margin-bottom: 10px;
 }
 /* Hidden elements */
-.hidden { display: none; }
+.hidden { display: none !important; }
 /* Settings Modal */
 #settings-modal {
     position: fixed;
