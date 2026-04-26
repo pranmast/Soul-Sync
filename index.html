@@ -48,6 +48,9 @@
                 <h2 style="margin-bottom: 20px; text-align: center;">System Setup</h2>
                 <!-- autocomplete="off" silences the browser DOM warning -->
                 <form id="settings-form" autocomplete="off">
+                    <!-- Hidden username field required by browsers for accessibility -->
+                    <input type="text" id="app-user" name="username" autocomplete="username"
+                           value="soul-sync-user" style="display:none;" aria-hidden="true">
                     <div class="input-group">
                         <label for="gemini-key">Google Gemini Key</label>
                         <input type="password" id="gemini-key" placeholder="AIza..." autocomplete="new-password">
