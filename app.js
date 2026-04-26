@@ -243,13 +243,12 @@ const GEMINI_MODELS = [
 // ✅ FIX: Use Gemini's proper systemInstruction field (not a fake user/model pair)
 // ✅ FIX: Use a compatible structure for v1 models
 // ─── 8. Gemini AI — The Final Working Config ─────────────────────────────────
+// ─── 8. Gemini AI — The Working Logic ────────────────────────────────────────
 async function callGemini(contents, systemInstruction) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
 
-    // ✅ THE MOST STABLE STRUCTURE:
-    // 1. systemInstruction must NOT have a 'role'
-    // 2. Parts must be a direct array with a 'text' property
     const body = {
+        // ✅ Only include systemInstruction if it actually has text
         systemInstruction: {
             parts: [{ text: systemInstruction }]
         },
@@ -263,82 +262,55 @@ async function callGemini(contents, systemInstruction) {
         }
     };
 
-    try {
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(body)
-        });
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
 
-        const data = await res.json();
-
-        if (!res.ok) {
-            // Log exactly what we sent to debug if it fails again
-            console.log("Sent Body:", JSON.stringify(body));
-            console.error("API Error Response:", data);
-            throw new Error(data.error?.message || "Invalid Structure");
-        }
-
-        return data.candidates[0].content.parts[0].text;
-    } catch (e) {
-        throw e;
-    }
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || "API Error");
+    return data.candidates[0].content.parts[0].text;
 }
 
+// ─── 9. AI Brain — Friend Response ───────────────────────────────────────────
 async function getFriendResponse(userText) {
-    transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> Thinking...`;
+    if (!userText.trim()) return;
 
-    // ✅ FIX: Since v1 doesn't support the system_instruction field, 
-    // we inject the instructions as the VERY FIRST 'user' message.
-    const systemPrompt = `SYSTEM INSTRUCTIONS: You are Soul-Sync, a personal friend from Thane.
-    Today is Sunday, April 26, 2026 (41°C). 
-    Reply in the user's language. Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
+    // ✅ Define the prompt as a simple string
+    const systemPrompt = `You are Soul-Sync, a friend from Thane. Today is Sunday, April 26, 2026 (41°C). 
+    Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
-    // Construct the contents array for v1
-    let contents = [];
-    
-    if (state.history.length === 0) {
-        // First time? Add the instructions + user message
-        contents.push({ role: "user", parts: [{ text: systemPrompt + "\n\nUser says: " + userText }] });
-    } else {
-        // Ongoing chat? Use history and add user message
-        contents = [
-            ...state.history.map(h => ({
-                role: h.role === 'user' ? 'user' : 'model',
-                parts: [{ text: h.content }]
-            })),
-            { role: "user", parts: [{ text: userText }] }
-        ];
-    }
+    // ✅ Clean history mapping: Ensure we don't send the system prompt inside 'contents'
+    const contents = [
+        ...state.history.map(h => ({
+            role: h.role,
+            content: h.content
+        })),
+        { role: "user", content: userText }
+    ];
 
     try {
-        const rawText = await callGemini(contents);
+        // ✅ Pass both clearly
+        const rawText = await callGemini(contents, systemPrompt);
         
-        // Clean the response (Gemini sometimes adds ```json ... ```)
-        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("Response format error");
+        const result = JSON.parse(rawText);
 
-        const safeJson = jsonMatch[0].replace(/[\x00-\x1F\x7F]/g, '');
-        const result = JSON.parse(safeJson);
+        // Update History
+        state.history.push({ role: "user", content: userText });
+        state.history.push({ role: "model", content: result.reply });
 
-        // Update UI
+        // UI Updates
+        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
         if (result.mbti && result.mbti !== "Analyzing") {
             state.mbti = result.mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
-
-        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
-        
-        // Save to history
-        state.history.push({ role: "user", content: userText });
-        state.history.push({ role: "model", content: result.reply });
-        
         speak(result.reply);
-
     } catch (e) {
         console.error("Gemini Error:", e);
-        transcriptEl.textContent = `Error: ${e.message}`;
+        transcriptEl.textContent = "Brain error. Check console.";
     }
 }
 
