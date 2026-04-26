@@ -129,13 +129,21 @@ voiceBtn.onclick = async () => {
 async function startRecording() {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        mediaRecorder = new MediaRecorder(stream);
+        
+        // ✅ FIX: Detect the correct MIME type Chrome actually uses
+        const mimeType = MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
+            ? 'audio/webm;codecs=opus'
+            : MediaRecorder.isTypeSupported('audio/webm')
+            ? 'audio/webm'
+            : 'audio/ogg';
+        mediaRecorder = new MediaRecorder(stream, { mimeType });
         audioChunks = [];
         mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
         mediaRecorder.onstop = () =>
-            processAudio(new Blob(audioChunks, { type: 'audio/webm' }));
+            processAudio(new Blob(audioChunks, { type: mimeType }));
         mediaRecorder.start();
         state.isRecording = true;
+        state.recordingMime = mimeType; // Store for use in processAudio
         voiceBtn.classList.add('recording');
         transcriptEl.textContent = "🎙️ Listening...";
     } catch {
@@ -153,9 +161,11 @@ function stopRecording() {
 // Using 'mr-IN' for Marathi auto-detection (handles Marathi + English mixed speech)
 async function processAudio(blob) {
     const formData = new FormData();
-    formData.append('file', blob, 'audio.webm');
+    // ✅ FIX: Use the actual MIME type with correct file extension
+    const ext = (state.recordingMime || 'audio/webm').includes('ogg') ? 'ogg' : 'webm';
+    formData.append('file', blob, `audio.${ext}`);
     formData.append('model', 'saaras:v3');
-    formData.append('language_code', 'mr-IN'); // ✅ Valid: Marathi (handles code-mixed speech)
+    formData.append('language_code', 'mr-IN');
     try {
         const res = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
@@ -245,7 +255,9 @@ async function getFriendResponse(userText) {
         const rawText = await callGemini(contents);
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Response format error");
-        const result = JSON.parse(jsonMatch[0]);
+        // ✅ FIX: Strip control characters that Marathi text adds inside JSON strings
+        const safeJson = jsonMatch[0].replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        const result = JSON.parse(safeJson);
         // Update MBTI if confident
         if (result.mbti && result.mbti !== "Analyzing" && result.mbti.length === 4) {
             state.mbti = result.mbti;
