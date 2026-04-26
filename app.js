@@ -241,89 +241,82 @@ const GEMINI_MODELS = [
 ];
 
 // ✅ FIX: Use Gemini's proper systemInstruction field (not a fake user/model pair)
-async function callGemini(contents, systemInstruction) {
-    const body = { contents };
-    if (systemInstruction) {
-        body.system_instruction = { parts: [{ text: systemInstruction }] }; // ✅ snake_case for REST API
-    }
-    for (const modelPath of GEMINI_MODELS) {
-        try {
-            console.log("Trying:", modelPath);
-            const res = await fetch(
-                `https://generativelanguage.googleapis.com/${modelPath}:generateContent?key=${state.keys.gemini}`,
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body)
-                }
-            );
-            const data = await res.json();
-            if (!res.ok) { console.warn(modelPath, "failed:", data.error?.message); continue; }
-            if (!data.candidates?.[0]) continue;
-            console.log("✅ Success with:", modelPath);
-            return data.candidates[0].content.parts[0].text;
-        } catch (e) {
-            console.warn(modelPath, "error:", e.message);
+// ✅ FIX: Use a compatible structure for v1 models
+async function callGemini(contents) {
+    // We stick to v1/gemini-1.5-flash as it's the most stable for your key
+    const modelPath = "v1/models/gemini-1.5-flash";
+    
+    try {
+        const res = await fetch(
+            `https://generativelanguage.googleapis.com/${modelPath}:generateContent?key=${state.keys.gemini}`,
+            {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ contents }) // Removed system_instruction from here
+            }
+        );
+        const data = await res.json();
+        
+        if (!res.ok) { 
+            console.warn("Gemini failed:", data.error?.message); 
+            throw new Error(data.error?.message);
         }
+        
+        return data.candidates[0].content.parts[0].text;
+    } catch (e) {
+        throw e;
     }
-    throw new Error("All Gemini models failed. Check your Google API key.");
 }
 
-// ─── 9. AI Brain — Friend Response ───────────────────────────────────────────
 async function getFriendResponse(userText) {
     transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> Thinking...`;
 
-    // ✅ FIX: System prompt goes in systemInstruction field — NOT as fake user turn
-    const systemInstruction = `You are Soul-Sync, a personal friend from Thane, Maharashtra.
-    Today is Sunday, April 26, 2026, it is hot outside (41°C).
-    Rules:
-    1. Reply in the SAME LANGUAGE as the user (Marathi, Hindi, or English).
-    2. Be warm, personal. Reference local spots if relevant (Viviana Mall, Upvan Lake, Yeoor Hills).
-    3. Silently analyze their MBTI traits from what they say.
-    4. Suggest a YouTube video or activity only when it truly fits.
-    5. ALWAYS answer the user's actual question directly first.
-    Return EXACTLY this JSON, no extra text:
-    {"reply": "...", "mbti": "4-letter type or Analyzing", "media": {"title": "...", "info": "..."} }`;
+    // ✅ FIX: Since v1 doesn't support the system_instruction field, 
+    // we inject the instructions as the VERY FIRST 'user' message.
+    const systemPrompt = `SYSTEM INSTRUCTIONS: You are Soul-Sync, a personal friend from Thane.
+    Today is Sunday, April 26, 2026 (41°C). 
+    Reply in the user's language. Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
-    // Build contents: only real conversation turns (no fake handshake)
-    const contents = [
-        // Past turns from history
-        ...state.history.map(h => ({
-            role: h.role === 'user' ? 'user' : 'model',
-            parts: [{ text: h.role === 'user' ? h.content : h.content }]
-        })),
-        // Current user message
-        { role: "user", parts: [{ text: userText }] }
-    ];
+    // Construct the contents array for v1
+    let contents = [];
+    
+    if (state.history.length === 0) {
+        // First time? Add the instructions + user message
+        contents.push({ role: "user", parts: [{ text: systemPrompt + "\n\nUser says: " + userText }] });
+    } else {
+        // Ongoing chat? Use history and add user message
+        contents = [
+            ...state.history.map(h => ({
+                role: h.role === 'user' ? 'user' : 'model',
+                parts: [{ text: h.content }]
+            })),
+            { role: "user", parts: [{ text: userText }] }
+        ];
+    }
 
     try {
-        const rawText = await callGemini(contents, systemInstruction);
+        const rawText = await callGemini(contents);
+        
+        // Clean the response (Gemini sometimes adds ```json ... ```)
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Response format error");
 
-        // ✅ FIX: Strip control characters that Marathi text adds inside JSON strings
-        const safeJson = jsonMatch[0].replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+        const safeJson = jsonMatch[0].replace(/[\x00-\x1F\x7F]/g, '');
         const result = JSON.parse(safeJson);
 
-        // Update MBTI if confident
-        if (result.mbti && result.mbti !== "Analyzing" && result.mbti.length === 4) {
+        // Update UI
+        if (result.mbti && result.mbti !== "Analyzing") {
             state.mbti = result.mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
 
-        // Show media suggestion if provided
-        if (result.media?.title && result.media?.info) {
-            mediaCard.classList.remove('hidden');
-            mediaContent.innerHTML = `
-                <strong style="color:var(--accent)">${result.media.title}</strong>
-                <p style="margin-top:5px; color:var(--text-dim)">${result.media.info}</p>`;
-        }
-
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
-        // ✅ FIX: Now push BOTH turns together after response is received
-        state.history.push({ role: "user",      content: userText });
-        state.history.push({ role: "assistant", content: result.reply });
+        
+        // Save to history
+        state.history.push({ role: "user", content: userText });
+        state.history.push({ role: "model", content: result.reply });
+        
         speak(result.reply);
 
     } catch (e) {
