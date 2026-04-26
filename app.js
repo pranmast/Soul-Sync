@@ -289,17 +289,16 @@ async function callGemini(contents, systemInstruction) {
 async function getFriendResponse(userText) {
     if (!userText.trim()) return;
 
-    // 1. Move static info (Date/Weather) to a 'context' block
-    // 2. Keep the persona instructions separate
-    const systemPrompt = `You are Soul-Sync, a friend from Thane. 
-    Current Context: Today is Sunday, April 26, 2026. It's a scorching 41°C in Thane.
-    
-    CRITICAL: 
-    - First, answer exactly what the user asked or commented on.
-    - Mention the heat/weather ONLY if it feels natural to the conversation.
-    - Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
+    // Focused persona: No hardcoded external context
+    const systemPrompt = `You are Soul-Sync, a close and supportive personal friend. 
+    Rules:
+    1. Focus entirely on the user's current input and emotions.
+    2. Match the user's language (Marathi, Hindi, or English).
+    3. Be warm, insightful, and conversational.
+    4. Analyze the user's MBTI based ONLY on their communication style.
+    5. Return EXACTLY this JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
-    // Ensure we are using the latest model alias for 2026
+    // Using the 2026 standard for high-speed conversational AI
     const modelId = "gemini-3-flash-preview"; 
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${state.keys.gemini}`;
 
@@ -315,7 +314,7 @@ async function getFriendResponse(userText) {
         systemInstruction: { parts: [{ text: systemPrompt }] },
         contents: contents,
         generationConfig: { 
-            temperature: 0.8, // Slightly higher for a more "natural" friend vibe
+            temperature: 0.75, // Balanced for personality and logic
             responseMimeType: "application/json" 
         }
     };
@@ -328,24 +327,30 @@ async function getFriendResponse(userText) {
         });
 
         const data = await res.json();
-        if (!res.ok) throw new Error(data.error?.message);
+        if (!res.ok) throw new Error(data.error?.message || "Brain Connection Failed");
 
         const result = JSON.parse(data.candidates[0].content.parts[0].text);
 
-        // Update history with the ACTUAL user text and AI reply
+        // Record history
         state.history.push({ role: "user", content: userText });
         state.history.push({ role: "assistant", content: result.reply });
 
+        // UI & Audio
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
+        
+        if (result.mbti && result.mbti !== "Analyzing") {
+            state.mbti = result.mbti;
+            localStorage.setItem('user_mbti', state.mbti);
+            updateUI(); 
+        }
+        
         speak(result.reply);
-        updateUI(); 
 
     } catch (e) {
         console.error("Gemini Error:", e);
-        transcriptEl.textContent = "Maza brain garam jhalay (Brain error).";
+        transcriptEl.textContent = "I'm having trouble focusing. Let's try again?";
     }
 }
-
 // ─── 10. Text-to-Speech — Bilingual (Sarvam for Marathi, Browser for English) ─
 async function speak(text) {
     window.speechSynthesis.cancel(); // Stop any previous browser speech
