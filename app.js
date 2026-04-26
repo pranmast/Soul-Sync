@@ -283,7 +283,7 @@ async function speakMarathi(text) {
             body: JSON.stringify({
                 inputs: [text],
                 target_language_code: 'mr-IN',
-                speaker: 'meera',   // Female Marathi voice
+                speaker: 'kavya',   // ✅ Valid female voice (bulbul:v3)
                 pace: 1.0,
                 model: 'bulbul:v3'
             })
