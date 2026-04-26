@@ -203,8 +203,12 @@ const GEMINI_MODELS = [
     "v1beta/models/gemini-1.5-flash",
     "v1beta/models/gemini-pro"
 ];
-// ✅ FIX: Accept structured contents array for proper multi-turn conversation
-async function callGemini(contents) {
+// ✅ FIX: Use Gemini's proper systemInstruction field (not a fake user/model pair)
+async function callGemini(contents, systemInstruction) {
+    const body = { contents };
+    if (systemInstruction) {
+        body.systemInstruction = { parts: [{ text: systemInstruction }] };
+    }
     for (const modelPath of GEMINI_MODELS) {
         try {
             console.log("Trying:", modelPath);
@@ -213,7 +217,7 @@ async function callGemini(contents) {
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents })
+                    body: JSON.stringify(body)
                 }
             );
             const data = await res.json();
@@ -230,32 +234,29 @@ async function callGemini(contents) {
 // ─── 9. AI Brain — Friend Response ───────────────────────────────────────────
 async function getFriendResponse(userText) {
     transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> Thinking...`;
-    // ✅ FIX: Build proper multi-turn contents array for Gemini
-    // System instruction is the first user turn, then alternating user/model turns
+    // ✅ FIX: System prompt goes in systemInstruction field — NOT as fake user turn
     const systemInstruction = `You are Soul-Sync, a personal friend from Thane, Maharashtra.
-    Today is Sunday, April 26, 2026 and it is hot outside (41°C).
+    Today is Sunday, April 26, 2026, it is hot outside (41°C).
     Rules:
     1. Reply in the SAME LANGUAGE as the user (Marathi, Hindi, or English).
-    2. Be warm, deep and personal. Reference local spots if helpful (Viviana Mall, Upvan Lake, Masunda Lake, Yeoor Hills).
-    3. Analyze MBTI from the conversation.
-    4. Suggest a YouTube video or activity if it fits naturally.
-    5. Stay in character until user says "Ok bye".
-    Return EXACTLY this JSON (no extra text):
-    {"reply": "...", "mbti": "4-letter or Analyzing", "media": {"title": "...", "info": "..."} }`;
-    // Build contents: system → past history → current user message
+    2. Be warm, personal. Reference local spots if relevant (Viviana Mall, Upvan Lake, Yeoor Hills).
+    3. Silently analyze their MBTI traits from what they say.
+    4. Suggest a YouTube video or activity only when it truly fits.
+    5. ALWAYS answer the user's actual question directly first.
+    Return EXACTLY this JSON, no extra text:
+    {"reply": "...", "mbti": "4-letter type or Analyzing", "media": {"title": "...", "info": "..."} }`;
+    // Build contents: only real conversation turns (no fake handshake)
     const contents = [
-        { role: "user",  parts: [{ text: systemInstruction }] },
-        { role: "model", parts: [{ text: '{"reply": "Understood! I am Soul-Sync, your Thane friend. Ready.", "mbti": "Analyzing", "media": {"title": "", "info": ""}}' }] },
-        // Past conversation turns
+        // Past turns from history
         ...state.history.map(h => ({
             role: h.role === 'user' ? 'user' : 'model',
-            parts: [{ text: h.content }]
+            parts: [{ text: h.role === 'user' ? h.content : h.content }]
         })),
         // Current user message
         { role: "user", parts: [{ text: userText }] }
     ];
     try {
-        const rawText = await callGemini(contents);
+        const rawText = await callGemini(contents, systemInstruction);
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Response format error");
         // ✅ FIX: Strip control characters that Marathi text adds inside JSON strings
