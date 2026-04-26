@@ -165,3 +165,20 @@ input {
     width: 100%;
     font-weight: 600;
 }
+.media-grid {
+    margin-top: 10px;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 12px;
+    font-size: 0.85rem;
+}
+
+.header-controls {
+    margin-top: -10px;
+    margin-bottom: 20px;
+}
+
+/* Ensure long text doesn't break the glass cards */
+.subtitle {
+    word-wrap: break-word;
+}
