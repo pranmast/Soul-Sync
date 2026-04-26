@@ -1,20 +1,24 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soul-Sync | AI Partner Compatibility</title>
-    <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>Soul-Sync AI</h1>
-            <p class="subtitle">Finding your life partner through logic & vibration.</p>
-        </header>
-        <!-- Main Dashboard -->
-        <main id="dashboard">
+<main id="dashboard">
+            <div class="card controls-card">
+                <div class="controls-row">
+                    <div class="input-group">
+                        <label class="label">Assistant Mode</label>
+                        <select id="mode-toggle" class="custom-select">
+                            <option value="assessment">Psychological Assessment</option>
+                            <option value="chat">Global Chat Assistant</option>
+                        </select>
+                    </div>
+                    <div class="input-group">
+                        <label class="label">Language</label>
+                        <select id="language-select" class="custom-select">
+                            <option value="en-IN">English</option>
+                            <option value="hi-IN">Hindi (हिंदी)</option>
+                            <option value="mr-IN">Marathi (मराठी)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
             <div class="card profile-card">
                 <div class="label">My Personality Type</div>
                 <div class="type-display">
@@ -22,12 +26,14 @@
                     <p id="mbti-desc" class="subtitle">Start a conversation to find your type.</p>
                 </div>
             </div>
+
             <div class="card traits-card">
                 <div class="label">Husband/Wife Qualities</div>
                 <div id="traits-list" class="traits-content">
                     <p class="subtitle">Complete your assessment to unlock your partner profile.</p>
                 </div>
             </div>
+
             <div class="voice-btn-container">
                 <button id="voice-btn" class="voice-btn">
                     <svg viewBox="0 0 24 24">
@@ -36,34 +42,9 @@
                     </svg>
                 </button>
             </div>
+
             <div class="card assessment-card">
                 <div class="label">Live Transcript</div>
                 <div id="transcript" class="subtitle" style="font-style: italic;">"Wait for voice input..."</div>
             </div>
-            <div class="card compatibility-card hidden" id="compatibility-section">
-                <div class="label">Partner Compatibility</div>
-                <div class="meter-bg"><div id="comp-meter" class="meter-fill"></div></div>
-                <p id="comp-summary" class="subtitle">Sync with a partner to see results.</p>
-            </div>
         </main>
-        <!-- Settings Modal (Keys) -->
-        <div id="settings-modal" class="hidden">
-            <div class="card" style="width: 90%; max-width: 400px;">
-                <h2 style="margin-bottom: 20px;">AI Configuration</h2>
-                <form id="settings-form">
-                    <div class="input-group">
-                        <label>Google Gemini Key</label>
-                        <input type="password" id="gemini-key" placeholder="Paste Gemini Key" autocomplete="current-password">
-                    </div>
-                    <div class="input-group">
-                        <label>Sarvam AI Key</label>
-                        <input type="password" id="sarvam-key" placeholder="Paste Sarvam Key" autocomplete="current-password">
-                    </div>
-                    <button type="submit" id="save-settings" class="btn-primary">Save & Initialize</button>
-                </form>
-            </div>
-        </div>
-    </div>
-    <script src="app.js"></script>
-</body>
-</html>
