@@ -46,9 +46,10 @@ const PERSONALITY_DATA = {
 };
 // State Management
 let state = {
-    mbti: localStorage.getItem('user_mbti') || 'INTP',
+    mbti: localStorage.getItem('user_mbti') || 'Analyzing...',
     transcript: '',
     isRecording: false,
+    history: [], // For continuous conversation
     keys: {
         gemini: localStorage.getItem('gemini_key') || '',
         sarvam: localStorage.getItem('sarvam_key') || ''
@@ -64,7 +65,6 @@ const settingsModal = document.getElementById('settings-modal');
 // Initialize
 function init() {
     console.log("Initializing Soul-Sync...");
-    // If keys are missing OR are placeholders, show modal
     if (!state.keys.gemini || state.keys.gemini === '00' || !state.keys.sarvam || state.keys.sarvam === '00') {
         settingsModal.classList.remove('hidden');
     } else {
@@ -85,7 +85,6 @@ function updateUI() {
         <p>${data.compatibility.join(', ')}</p>
         <button id="reset-keys-btn" style="margin-top:20px; background:none; border:1px solid var(--text-dim); color:var(--text-dim); padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.7rem;">Reset Keys</button>
     `;
-    // Add reset listener
     document.getElementById('reset-keys-btn').addEventListener('click', () => {
         localStorage.clear();
         location.reload();
@@ -99,7 +98,6 @@ if (saveBtn) {
         const sKey = document.getElementById('sarvam-key').value.trim();
         
         if (gKey && sKey) {
-            console.log("Saving keys to localStorage...");
             localStorage.setItem('gemini_key', gKey);
             localStorage.setItem('sarvam_key', sKey);
             state.keys.gemini = gKey;
@@ -111,6 +109,13 @@ if (saveBtn) {
             alert("Please provide both keys.");
         }
     });
+}
+// Speech Synthesis (AI Talking Back)
+function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-IN'; // Indian accent English
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
 }
 // Voice Interaction Logic
 let mediaRecorder;
@@ -131,7 +136,7 @@ async function startRecording() {
             audioChunks.push(event.data);
         };
         mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Chrome records in webm
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
             processAudio(audioBlob);
         };
         mediaRecorder.start();
@@ -140,7 +145,7 @@ async function startRecording() {
         transcriptEl.textContent = "Listening to your soul...";
     } catch (err) {
         console.error("Microphone access denied", err);
-        alert("Microphone access is required for the personality test.");
+        alert("Microphone access is required.");
     }
 }
 function stopRecording() {
@@ -152,38 +157,48 @@ function stopRecording() {
 // API: Sarvam AI (Speech to Text)
 async function processAudio(blob) {
     const formData = new FormData();
-    // Use 'audio.webm' as the filename since that is the real format
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'saaras:v3'); 
-    formData.append('language_code', 'mr-IN'); // Optimized for Marathi and English
+    formData.append('language_code', 'mr-IN'); 
     try {
         const response = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
-            headers: {
-                'api-subscription-key': state.keys.sarvam
-            },
+            headers: { 'api-subscription-key': state.keys.sarvam },
             body: formData
         });
-        if (!response.ok) {
-            const errorBody = await response.text();
-            console.error("Sarvam API Error Body:", errorBody);
-            throw new Error(`HTTP ${response.status}: ${errorBody}`);
-        }
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const data = await response.json();
         if (data.transcript) {
-            transcriptEl.textContent = `"${data.transcript}"`;
-            analyzePersonality(data.transcript);
+            transcriptEl.innerHTML = `<strong>You:</strong> "${data.transcript}"`;
+            state.history.push({ role: "user", content: data.transcript });
+            analyzePersonality();
         }
     } catch (err) {
         console.error("Sarvam API Error", err);
-        transcriptEl.textContent = "Error: Check your keys or speak longer.";
+        transcriptEl.textContent = "Error transcribing. Try again.";
     }
 }
-// API: Gemini (Personality Analysis)
-async function analyzePersonality(text) {
-    const prompt = `Based on this spoken text: "${text}", evaluate the user's personality traits. 
-    Map them to one of the 16 MBTI types (INTJ, INTP, etc.). 
-    Return ONLY the 4-letter code. If unsure, return the most likely one based on the vibe.`;
+// API: Gemini (Interactive Assessment)
+async function analyzePersonality() {
+    transcriptEl.textContent = "Soul-Sync is thinking...";
+    
+    const prompt = `You are Soul-Sync AI, a warm and insightful life partner consultant. 
+    Your goal is to determine the user's MBTI through a natural conversation.
+    
+    Conversation History: ${JSON.stringify(state.history)}
+    
+    Task:
+    1. Acknowledge what the user just said briefly.
+    2. Analyze their traits for MBTI.
+    3. Ask exactly ONE follow-up question that helps distinguish between traits.
+    4. If you are 90% sure of their MBTI, output the 4-letter type.
+    
+    Return your response in this EXACT JSON format:
+    {
+        "response": "Your conversational response here",
+        "next_question": "Your next question to gauge their personality",
+        "detected_mbti": "XXXX (The 4-letter type if sure, else 'Analyzing')"
+    }`;
     try {
         const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`, {
             method: 'POST',
@@ -193,16 +208,22 @@ async function analyzePersonality(text) {
             })
         });
         const data = await response.json();
-        const result = data.candidates[0].content.parts[0].text.trim().toUpperCase();
-        
-        if (result.length === 4) {
-            state.mbti = result;
-            localStorage.setItem('user_mbti', result);
+        const rawText = data.candidates[0].content.parts[0].text;
+        const cleanJson = rawText.replace(/```json|```/g, "").trim();
+        const result = JSON.parse(cleanJson);
+        if (result.detected_mbti !== "Analyzing") {
+            state.mbti = result.detected_mbti;
+            localStorage.setItem('user_mbti', result.detected_mbti);
             updateUI();
         }
+        const fullResponse = `${result.response}. ${result.next_question}`;
+        transcriptEl.innerHTML = `<strong>Soul-Sync:</strong> ${fullResponse}`;
+        state.history.push({ role: "assistant", content: fullResponse });
+        
+        speak(fullResponse);
     } catch (err) {
         console.error("Gemini API Error", err);
+        transcriptEl.textContent = "I'm having trouble thinking. Try again.";
     }
 }
-// Run init on load
 init();
