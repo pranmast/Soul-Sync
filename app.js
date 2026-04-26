@@ -58,6 +58,7 @@ let state = {
     mbti: localStorage.getItem('user_mbti') || 'Analyzing...',
     history: [],
     isRecording: false,
+    userGender: localStorage.getItem('user_gender') || 'male', // 'male' or 'female'
     keys: {
         gemini: localStorage.getItem('gemini_key') || '',
         sarvam: localStorage.getItem('sarvam_key') || ''
@@ -79,6 +80,22 @@ function init() {
     } else {
         settingsModal.classList.add('hidden');
         updateUI();
+    }
+    // Gender toggle button
+    const genderToggle = document.getElementById('gender-toggle');
+    const genderLabel  = document.getElementById('gender-label');
+    if (genderToggle) {
+        // Set initial label from saved state
+        genderLabel.textContent = state.userGender === 'male' ? '👨 Male' : '👩 Female';
+        genderToggle.addEventListener('click', () => {
+            state.userGender = state.userGender === 'male' ? 'female' : 'male';
+            localStorage.setItem('user_gender', state.userGender);
+            genderLabel.textContent = state.userGender === 'male' ? '👨 Male' : '👩 Female';
+            // Visual feedback
+            genderToggle.style.borderColor = state.userGender === 'male' ? 'var(--accent)' : 'var(--secondary)';
+        });
+        // Set initial border color
+        genderToggle.style.borderColor = state.userGender === 'male' ? 'var(--accent)' : 'var(--secondary)';
     }
 }
 function updateUI() {
@@ -207,7 +224,7 @@ const GEMINI_MODELS = [
 async function callGemini(contents, systemInstruction) {
     const body = { contents };
     if (systemInstruction) {
-        body.systemInstruction = { parts: [{ text: systemInstruction }] };
+        body.system_instruction = { parts: [{ text: systemInstruction }] }; // ✅ snake_case for REST API
     }
     for (const modelPath of GEMINI_MODELS) {
         try {
@@ -298,8 +315,10 @@ async function speak(text) {
     }
 }
 async function speakMarathi(text) {
-    // Sarvam TTS has a 500 char limit per request — truncate if needed
     const safeText = text.length > 500 ? text.substring(0, 497) + '...' : text;
+    // Voice logic: AI speaks in opposite gender to create natural conversation feel
+    // Male user → Simran (female AI voice) | Female user → Shubh (male AI voice)
+    const speaker = state.userGender === 'male' ? 'simran' : 'shubh';
     try {
         const res = await fetch('https://api.sarvam.ai/text-to-speech', {
             method: 'POST',
@@ -310,7 +329,7 @@ async function speakMarathi(text) {
             body: JSON.stringify({
                 inputs: [safeText],
                 target_language_code: 'mr-IN',
-                speaker: 'kavya',
+                speaker: speaker,
                 pace: 1.0,
                 model: 'bulbul:v3'
             })
