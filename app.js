@@ -246,19 +246,17 @@ const GEMINI_MODELS = [
 async function callGemini(contents, systemInstruction) {
     const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
 
+    // ✅ THE MOST STABLE STRUCTURE:
+    // 1. systemInstruction must NOT have a 'role'
+    // 2. Parts must be a direct array with a 'text' property
     const body = {
-        // ✅ FIX: Ensure contents parts are strictly { text: "..." }
-        contents: contents.map(c => ({
-            role: c.role === 'assistant' ? 'model' : c.role,
-            parts: [{ text: String(c.parts?.[0]?.text || c.content || "") }]
-        })),
-        
-        // ✅ CRITICAL FIX: The structure for systemInstruction in v1beta
         systemInstruction: {
-            role: "system", // Some tiers require this role declaration
             parts: [{ text: systemInstruction }]
         },
-
+        contents: contents.map(c => ({
+            role: c.role === 'assistant' ? 'model' : c.role,
+            parts: [{ text: c.content || c.parts?.[0]?.text || "" }]
+        })),
         generationConfig: {
             temperature: 0.7,
             responseMimeType: "application/json"
@@ -275,13 +273,14 @@ async function callGemini(contents, systemInstruction) {
         const data = await res.json();
 
         if (!res.ok) {
-            console.error("Full API Error Object:", JSON.stringify(data, null, 2));
-            throw new Error(data.error?.message || "Check Console for structure error");
+            // Log exactly what we sent to debug if it fails again
+            console.log("Sent Body:", JSON.stringify(body));
+            console.error("API Error Response:", data);
+            throw new Error(data.error?.message || "Invalid Structure");
         }
 
         return data.candidates[0].content.parts[0].text;
     } catch (e) {
-        console.error("Fetch Error:", e);
         throw e;
     }
 }
