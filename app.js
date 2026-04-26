@@ -260,22 +260,73 @@ async function getFriendResponse(userText) {
         transcriptEl.textContent = `Error: ${e.message}`;
     }
 }
-// ─── 10. Text-to-Speech with Language Detection ───────────────────────────────
-function speak(text) {
-    window.speechSynthesis.cancel(); // Stop any previous speech
-    const utterance = new SpeechSynthesisUtterance(text);
-    // Detect Devanagari script → Marathi/Hindi voice
+// ─── 10. Text-to-Speech — Bilingual (Sarvam for Marathi, Browser for English) ─
+async function speak(text) {
+    window.speechSynthesis.cancel(); // Stop any previous browser speech
     const isDevanagari = /[\u0900-\u097F]/.test(text);
-    utterance.lang = isDevanagari ? 'mr-IN' : 'en-IN';
+    if (isDevanagari) {
+        // Use Sarvam AI TTS for real Marathi voice (Bulbul v3)
+        await speakMarathi(text);
+    } else {
+        // Use browser TTS for English
+        speakEnglish(text);
+    }
+}
+async function speakMarathi(text) {
+    try {
+        const res = await fetch('https://api.sarvam.ai/text-to-speech', {
+            method: 'POST',
+            headers: {
+                'api-subscription-key': state.keys.sarvam,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                inputs: [text],
+                target_language_code: 'mr-IN',
+                speaker: 'meera',   // Female Marathi voice
+                pace: 1.0,
+                model: 'bulbul:v3'
+            })
+        });
+        if (!res.ok) {
+            console.warn("Sarvam TTS failed, falling back to browser TTS.");
+            speakEnglish(text); // Fallback
+            return;
+        }
+        const data = await res.json();
+        // Sarvam returns base64-encoded audio
+        const audioBase64 = data.audios?.[0];
+        if (!audioBase64) { speakEnglish(text); return; }
+        // Decode base64 and play as audio
+        const audioBlob = base64ToBlob(audioBase64, 'audio/wav');
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+        audio.play();
+        audio.onended = () => URL.revokeObjectURL(audioUrl); // Free memory
+    } catch (e) {
+        console.error("Sarvam TTS Error:", e);
+        speakEnglish(text); // Fallback on any error
+    }
+}
+function speakEnglish(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-IN';
     utterance.rate = 1.0;
-    // Try to pick the best matching voice
     const voices = window.speechSynthesis.getVoices();
-    const match = voices.find(v => v.lang === utterance.lang)
-                || voices.find(v => v.lang.startsWith(utterance.lang.split('-')[0]));
-    if (match) utterance.voice = match;
+    const voice = voices.find(v => v.lang === 'en-IN') ||
+                  voices.find(v => v.lang.startsWith('en'));
+    if (voice) utterance.voice = voice;
     window.speechSynthesis.speak(utterance);
 }
-// Voices may not be loaded yet — reload them when available
+function base64ToBlob(base64, mimeType) {
+    const byteChars = atob(base64);
+    const byteNums = new Array(byteChars.length);
+    for (let i = 0; i < byteChars.length; i++) {
+        byteNums[i] = byteChars.charCodeAt(i);
+    }
+    return new Blob([new Uint8Array(byteNums)], { type: mimeType });
+}
+// Preload voices
 window.speechSynthesis.onvoiceschanged = () => window.speechSynthesis.getVoices();
 // ─── Run ──────────────────────────────────────────────────────────────────────
 init();
