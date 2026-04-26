@@ -1,18 +1,9 @@
 /**
- * Soul-Sync 2026: Psychological Architecture
+ * Soul-Sync 2026: Thane Friend Edition
  */
-
-const PERSONALITY_DATA = {
-    "INTP": { title: "The Logician", desc: "Inventive innovators with an unquenchable thirst for knowledge.", traits: "Values intellectual depth, requires high autonomy, and focuses on objective truth.", dynamics: "Pairs well with types that respect mental space and offer emotional stability." },
-    "INTJ": { title: "The Architect", desc: "Strategic thinkers with a plan for everything.", traits: "High efficiency, strategic foresight, and preference for competence over social niceties.", dynamics: "Best suited for individuals who are self-driven and intellectually ambitious." },
-    "INFJ": { title: "The Advocate", desc: "Quiet and mystical, yet very inspiring and tireless idealists.", traits: "Deep empathy, visionary insight, and a strong sense of personal integrity.", dynamics: "Requires profound emotional and intellectual connection." },
-    "INFP": { title: "The Mediator", desc: "Poetic, kind and altruistic people, always eager to help a good cause.", traits: "Value-driven, imaginative, and deeply empathetic to the human condition.", dynamics: "Thrives with partners who provide safety for their rich inner world." },
-    "ENTP": { title: "The Debater", desc: "Smart and curious thinkers who cannot resist an intellectual challenge.", traits: "Quick wit, adaptable, and loves exploring divergent possibilities.", dynamics: "Connects best with those who enjoy high-speed mental sparring." }
-};
 
 let state = {
     mbti: localStorage.getItem('user_mbti') || 'Analyzing...',
-    language: 'en-IN',
     history: [],
     isRecording: false,
     keys: {
@@ -23,109 +14,115 @@ let state = {
 
 const voiceBtn = document.getElementById('voice-btn');
 const transcriptEl = document.getElementById('transcript');
-const langSelect = document.getElementById('language-select');
+const mediaCard = document.getElementById('media-card');
+const mediaContent = document.getElementById('media-content');
 
 function init() {
-    if (!state.keys.gemini || state.keys.gemini === '00' || !state.keys.sarvam) {
+    if (!state.keys.gemini || state.keys.gemini === '00') {
         document.getElementById('settings-modal').classList.remove('hidden');
     }
-    langSelect.addEventListener('change', (e) => state.language = e.target.value);
     updateUI();
 }
 
-// Fixed Voice Logic for 2026 Browsers
-async function toggleRecording() {
-    if (state.isRecording) return; // Managed by onstop
-
+// 1. Voice Control
+async function handleVoice() {
+    if (state.isRecording) return;
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const mediaRecorder = new MediaRecorder(stream);
+        const recorder = new MediaRecorder(stream);
         let chunks = [];
 
-        mediaRecorder.ondataavailable = (e) => chunks.push(e.data);
-        mediaRecorder.onstop = () => processAudio(new Blob(chunks, { type: 'audio/webm' }));
+        recorder.ondataavailable = (e) => chunks.push(e.data);
+        recorder.onstop = () => processAudio(new Blob(chunks, { type: 'audio/webm' }));
 
-        mediaRecorder.start();
+        recorder.start();
         state.isRecording = true;
         voiceBtn.classList.add('recording');
-        transcriptEl.textContent = "Listening to your patterns...";
+        transcriptEl.textContent = "...";
 
-        // Click again to stop
         voiceBtn.onclick = () => {
-            mediaRecorder.stop();
+            recorder.stop();
             state.isRecording = false;
             voiceBtn.classList.remove('recording');
-            voiceBtn.onclick = toggleRecording;
+            voiceBtn.onclick = handleVoice;
         };
-    } catch (err) {
-        alert("System requires microphone access.");
-    }
+    } catch (e) { alert("Mic required."); }
 }
-voiceBtn.onclick = toggleRecording;
+voiceBtn.onclick = handleVoice;
 
+// 2. Audio Processing (Sarvam STT)
 async function processAudio(blob) {
     const formData = new FormData();
     formData.append('file', blob, 'audio.webm');
     formData.append('model', 'saaras:v3');
-    formData.append('language_code', state.language);
+    // We send multilang code so Sarvam detects the language
+    formData.append('language_code', 'mul'); 
 
     try {
-        const response = await fetch('https://api.sarvam.ai/speech-to-text', {
+        const res = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
             headers: { 'api-subscription-key': state.keys.sarvam },
             body: formData
         });
-        const data = await response.json();
+        const data = await res.json();
         if (data.transcript) {
-            transcriptEl.innerHTML = `<span style="color:var(--accent)">User:</span> ${data.transcript}`;
+            transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> ${data.transcript}`;
             state.history.push({ role: "user", content: data.transcript });
-            analyzeWithGemini();
+            getFriendResponse(data.transcript);
         }
     } catch (e) { transcriptEl.textContent = "STT Error."; }
 }
 
-async function analyzeWithGemini() {
-    transcriptEl.textContent = "Analyzing cognitive functions...";
+// 3. AI Brain (Gemini 3.1 Flash)
+async function getFriendResponse(userText) {
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${state.keys.gemini}`;
 
-    const prompt = `You are an AI Psychologist specializing in Personality Architecture.
-    GOAL: Have a natural, sophisticated conversation. Determine user MBTI letters (E/I, S/N, T/F, J/P).
-    STRICT RULE: NEVER mention marriage, husbands, wives, or domestic roles. Keep it professional and theoretical.
-    OUTPUT: JSON ONLY: {"response": "Psychological feedback", "next_question": "Deep inquiry", "detected_mbti": "XXXX or Analyzing"}`;
+    const systemPrompt = `You are Soul-Sync, a close personal friend living in Thane, Maharashtra. 
+    1. Respond strictly in the SAME LANGUAGE the user spoke (Marathi, Hindi, or English).
+    2. Be warm, casual, and highly informative. 
+    3. If asked about weather/places, use your 2026 knowledge (Thane is warm/humid, Upvan Lake, Viviana Mall, etc.).
+    4. If appropriate, suggest a YouTube video or a recipe.
+    5. Silently track personality (MBTI).
+    OUTPUT ONLY JSON: 
+    {"friend_reply": "text", "detected_mbti": "XXXX or Analyzing", "media": {"type": "youtube/weather/recipe", "title": "name", "link_or_info": "data"}}`;
 
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: `${prompt}\nHistory: ${JSON.stringify(state.history)}` }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: `${systemPrompt}\nUser: ${userText}\nHistory: ${JSON.stringify(state.history)}` }] }] })
         });
         const data = await response.json();
-        const res = JSON.parse(data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
+        const jsonStr = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0];
+        const res = JSON.parse(jsonStr);
 
-        if (res.detected_mbti && res.detected_mbti !== "Analyzing") {
+        // Update Personality
+        if (res.detected_mbti !== "Analyzing") {
             state.mbti = res.detected_mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
 
-        const fullText = `${res.response} ${res.next_question}`;
-        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${fullText}`;
-        state.history.push({ role: "assistant", content: fullText });
-        
-        const speech = new SpeechSynthesisUtterance(fullText);
-        speech.lang = state.language;
+        // Show Media Card if AI suggested something
+        if (res.media) {
+            mediaCard.classList.remove('hidden');
+            document.getElementById('media-label').textContent = res.media.type.toUpperCase();
+            mediaContent.innerHTML = `<div style="color:var(--accent); font-weight:bold;">${res.media.title}</div><div>${res.media.link_or_info}</div>`;
+        }
+
+        // Final Response
+        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${res.friend_reply}`;
+        state.history.push({ role: "assistant", content: res.friend_reply });
+
+        // TTS (Matches language automatically)
+        const speech = new SpeechSynthesisUtterance(res.friend_reply);
         window.speechSynthesis.speak(speech);
-    } catch (e) { transcriptEl.textContent = "AI Sync Error."; }
+
+    } catch (e) { transcriptEl.textContent = "AI Friend is offline."; }
 }
 
 function updateUI() {
-    const data = PERSONALITY_DATA[state.mbti] || { title: "Analyzing", desc: "Continue speaking...", traits: "Processing traits...", dynamics: "Assessing dynamics..." };
     document.getElementById('mbti-type').textContent = state.mbti;
-    document.getElementById('mbti-desc').textContent = data.desc;
-    document.getElementById('traits-list').innerHTML = `
-        <p style="margin-bottom:10px;"><strong>Key Traits:</strong> ${data.traits}</p>
-        <p><strong>Interpersonal Dynamics:</strong> ${data.dynamics}</p>
-    `;
 }
 
 document.getElementById('settings-form').onsubmit = (e) => {
