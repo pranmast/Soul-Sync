@@ -1,91 +1,203 @@
 /**
- * Soul-Sync 2026 Edition (Thane Local Optimized)
- * Bug Fixes: Sarvam v3 Headers & Multilingual Prompting
+ * Soul-Sync 2026: Thane Friend Edition
+ * Features: Mic Animation, Multilingual Talk-back, Thane Local Context
  */
 
-// ... [Keep PERSONALITY_DATA and state as you have them] ...
+// 1. MBTI and Partnership Traits Data
+const PERSONALITY_DATA = {
+    "INTP": {
+        title: "The Architect",
+        desc: "Logical, independent, and non-conformist. You value deep intellectual connection.",
+        husband: "The 'Space-Giver'. You solve problems with logic and don't demand traditional roles.",
+        compatibility: ["INFJ", "ENFJ", "ENTP"]
+    },
+    "INTJ": {
+        title: "The Mastermind",
+        desc: "Strategic, private, and fiercely ambitious.",
+        husband: "The 'Visionary Partner'. You lead with long-term strategy and security.",
+        compatibility: ["ENFP", "ENTP", "INFJ"]
+    },
+    "INFP": {
+        title: "The Mediator",
+        desc: "Poetic, kind, and seeking soul-deep connections.",
+        husband: "The 'Gentle Soul'. Supportive of your partner's wildest dreams.",
+        compatibility: ["ENFJ", "ENTJ", "INFJ"]
+    },
+    "ENTP": {
+        title: "The Debater",
+        desc: "Quick-witted and expressive. You keep life interesting.",
+        husband: "The 'Idea Generator'. You challenge your partner to constant growth.",
+        compatibility: ["INFJ", "INTJ", "ENFP"]
+    }
+};
 
-// 6. Voice Processing
-async function processAudio(blob) {
-    const formData = new FormData();
-    // Use 'file' key and 'audio.webm' for Sarvam v3
-    formData.append('file', blob, 'audio.webm');
-    formData.append('model', 'saaras:v3'); 
-    // 'mul' is better for Thane users who mix Marathi/Hindi/English
-    formData.append('language_code', 'mul'); 
+// 2. State Management
+let state = {
+    mbti: localStorage.getItem('user_mbti') || 'Analyzing...',
+    history: [],
+    isRecording: false,
+    keys: {
+        gemini: localStorage.getItem('gemini_key') || '',
+        sarvam: localStorage.getItem('sarvam_key') || ''
+    }
+};
 
-    try {
-        const response = await fetch('https://api.sarvam.ai/speech-to-text', {
-            method: 'POST',
-            headers: { 
-                'api-subscription-key': state.keys.sarvam 
-                // CRITICAL: Do NOT set 'Content-Type' header; browser handles it for FormData
-            },
-            body: formData
-        });
-        
-        if (!response.ok) throw new Error(`STT Error: ${response.status}`);
-        
-        const data = await response.json();
-        if (data.transcript) {
-            transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> "${data.transcript}"`;
-            state.history.push({ role: "user", content: data.transcript });
-            analyzePersonality(data.transcript);
-        }
-    } catch (err) {
-        console.error(err);
-        transcriptEl.textContent = "STT Error. Check your connection or Sarvam key.";
+// 3. UI Elements
+const voiceBtn = document.getElementById('voice-btn');
+const transcriptEl = document.getElementById('transcript');
+const typeEl = document.getElementById('mbti-type');
+const descEl = document.getElementById('mbti-desc');
+const traitsEl = document.getElementById('traits-list');
+const mediaCard = document.getElementById('media-card');
+const mediaContent = document.getElementById('media-content');
+
+// 4. Initialization
+function init() {
+    if (!state.keys.gemini || state.keys.gemini === '00') {
+        document.getElementById('settings-modal').classList.remove('hidden');
+    }
+    updateUI();
+}
+
+function updateUI() {
+    const data = PERSONALITY_DATA[state.mbti] || { title: "Analyzing", desc: "Keep talking to map your vibe.", husband: "...", compatibility: [] };
+    typeEl.textContent = state.mbti;
+    descEl.textContent = data.desc;
+    if (traitsEl) {
+        traitsEl.innerHTML = `
+            <div class="label">Partner Profile</div>
+            <p>${data.husband}</p>
+            <div class="label" style="margin-top:10px;">Best Match</div>
+            <p>${data.compatibility.join(', ') || '...'}</p>
+        `;
     }
 }
 
-// 7. Core Analysis Logic (Personality & Thane Context)
-async function analyzePersonality(userText) {
-    transcriptEl.textContent = "विचार करतोय... (Analyzing)";
-    
-    const MODEL_ID = "gemini-1.5-flash"; // Stable 2026 endpoint
-    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_ID}:generateContent?key=${state.keys.gemini}`;
+// 5. Voice & Animation Logic
+let mediaRecorder;
+let audioChunks = [];
 
-    // Updated system prompt for better friend-vibe and local relevance
-    const systemPrompt = `You are Soul-Sync, a chill, insightful friend from Thane. 
-    CURRENT CONTEXT: It's April 2026. Thane is currently facing a heat alert (temp around 33°C-41°C). 
-    1. Analyze the user's psychology based on history: ${JSON.stringify(state.history)}.
-    2. Respond like a local buddy—warm, slightly witty, but deeply psychological.
-    3. If relevant, mention local vibes like Upvan Lake, Viviana, or the heatwave.
-    4. Provide one YouTube-style media recommendation (e.g., a relaxing song or a recipe like Paneer Butter Masala).
-    5. No lists. Just natural chat + ONE follow-up question.
-    REQUIRED JSON: {"response": "...", "next_question": "...", "detected_mbti": "XXXX", "media": {"title": "...", "link": "..."}}`;
+voiceBtn.onclick = async () => {
+    if (state.isRecording) {
+        stopRecording();
+    } else {
+        startRecording();
+    }
+};
+
+async function startRecording() {
+    try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        mediaRecorder = new MediaRecorder(stream);
+        audioChunks = [];
+        
+        mediaRecorder.ondataavailable = (e) => audioChunks.push(e.data);
+        mediaRecorder.onstop = () => processAudio(new Blob(audioChunks, { type: 'audio/webm' }));
+        
+        mediaRecorder.start();
+        state.isRecording = true;
+        voiceBtn.classList.add('recording'); // Starts CSS animation
+        transcriptEl.textContent = "Listening...";
+    } catch (err) {
+        alert("Mic access is required for Soul-Sync.");
+    }
+}
+
+function stopRecording() {
+    mediaRecorder.stop();
+    state.isRecording = false;
+    voiceBtn.classList.remove('recording'); // Stops CSS animation
+    transcriptEl.textContent = "Processing...";
+}
+
+// 6. Speech-to-Text (Sarvam v3)
+async function processAudio(blob) {
+    const formData = new FormData();
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'saaras:v3');
+    formData.append('language_code', 'mul'); // Multi-language detection
+
+    try {
+        const res = await fetch('https://api.sarvam.ai/speech-to-text', {
+            method: 'POST',
+            headers: { 'api-subscription-key': state.keys.sarvam },
+            body: formData
+        });
+        const data = await res.json();
+        if (data.transcript) {
+            transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> ${data.transcript}`;
+            state.history.push({ role: "user", content: data.transcript });
+            getFriendResponse(data.transcript);
+        }
+    } catch (e) {
+        transcriptEl.textContent = "Voice connection failed.";
+    }
+}
+
+// 7. AI Brain & Language Mirroring
+async function getFriendResponse(userText) {
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
+
+    const systemPrompt = `You are Soul-Sync, a personal friend from Thane. 
+    CONTEXT: It is Sunday, April 26, 2026. Thane is hot (41°C high).
+    1. Reply in the SAME LANGUAGE as the user (Marathi, Hindi, or English).
+    2. Be warm and deep. If they ask for plans, suggest indoor spots like Viviana Mall or evening at Upvan Lake.
+    3. Suggest a YouTube video/recipe if helpful.
+    4. Stay in character until they say "Ok bye".
+    OUTPUT JSON: {"reply": "...", "mbti": "XXXX", "media": {"title": "...", "info": "..."}}`;
 
     try {
         const response = await fetch(API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ contents: [{ parts: [{ text: `${systemPrompt}\nUser: ${userText}` }] }] })
+            body: JSON.stringify({ contents: [{ parts: [{ text: `${systemPrompt}\nUser: ${userText}\nHistory: ${JSON.stringify(state.history)}` }] }] })
         });
-
+        
         const data = await response.json();
-        const rawText = data.candidates[0].content.parts[0].text;
-        const result = JSON.parse(rawText.match(/\{[\s\S]*\}/)[0]);
+        const res = JSON.parse(data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
 
-        // Update MBTI UI if detected
-        if (result.detected_mbti && result.detected_mbti !== "Analyzing") {
-            state.mbti = result.detected_mbti;
+        // Update MBTI
+        if (res.mbti && res.mbti !== "Analyzing") {
+            state.mbti = res.mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
 
-        // Display Response
-        const fullText = `${result.response} ${result.next_question}`;
-        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${fullText}`;
-        
-        // Bonus: Media Recommendation Card (if you have one in your UI)
-        if(result.media) {
-             console.log("Recommended:", result.media.title);
+        // Media Suggestion
+        if (res.media) {
+            mediaCard.classList.remove('hidden');
+            mediaContent.innerHTML = `<strong>${res.media.title}</strong><p>${res.media.info}</p>`;
         }
 
-        state.history.push({ role: "assistant", content: fullText });
-        speak(fullText);
-
-    } catch (err) {
-        transcriptEl.textContent = "Connectivity issue with Gemini.";
-    }
+        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${res.reply}`;
+        state.history.push({ role: "assistant", content: res.reply });
+        
+        speak(res.reply);
+    } catch (e) { transcriptEl.textContent = "Gemini is offline."; }
 }
+
+// 8. Dynamic Talk-back (Language Detection)
+function speak(text) {
+    const utterance = new SpeechSynthesisUtterance(text);
+    
+    // Detect Devanagari (Marathi/Hindi) vs Latin (English)
+    const isIndic = /[\u0900-\u097F]/.test(text);
+    utterance.lang = isIndic ? 'mr-IN' : 'en-IN'; 
+
+    const voices = window.speechSynthesis.getVoices();
+    const voice = voices.find(v => v.lang.startsWith(utterance.lang));
+    if (voice) utterance.voice = voice;
+
+    utterance.rate = 1.0;
+    window.speechSynthesis.speak(utterance);
+}
+
+// Settings form
+document.getElementById('settings-form').onsubmit = (e) => {
+    e.preventDefault();
+    localStorage.setItem('gemini_key', document.getElementById('gemini-key').value);
+    localStorage.setItem('sarvam_key', document.getElementById('sarvam-key').value);
+    location.reload();
+};
+
+init();
