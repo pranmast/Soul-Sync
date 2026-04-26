@@ -45,16 +45,13 @@ const PERSONALITY_DATA = {
     // Add more types as needed...
 };
 // State Management
-// !! SECURITY WARNING !! 
-// DO NOT upload this file to a public GitHub repository. 
-// Your API keys are visible below.
 let state = {
     mbti: localStorage.getItem('user_mbti') || 'INTP',
     transcript: '',
     isRecording: false,
     keys: {
-        gemini: localStorage.getItem('gemini_key') || '00',
-        sarvam: localStorage.getItem('sarvam_key') || '00'
+        gemini: localStorage.getItem('gemini_key') || '',
+        sarvam: localStorage.getItem('sarvam_key') || ''
     }
 };
 // UI Elements
@@ -66,9 +63,12 @@ const traitsEl = document.getElementById('traits-list');
 const settingsModal = document.getElementById('settings-modal');
 // Initialize
 function init() {
-    if (!state.keys.gemini || !state.keys.sarvam) {
+    console.log("Initializing Soul-Sync...");
+    // If keys are missing OR are placeholders, show modal
+    if (!state.keys.gemini || state.keys.gemini === '00' || !state.keys.sarvam || state.keys.sarvam === '00') {
         settingsModal.classList.remove('hidden');
     } else {
+        settingsModal.classList.add('hidden');
         updateUI();
     }
 }
@@ -78,30 +78,40 @@ function updateUI() {
     typeEl.textContent = state.mbti;
     descEl.textContent = data.desc;
     
-    // Determine if we show husband or wife qualities (simplified for now)
     traitsEl.innerHTML = `
         <div class="subtitle" style="color: var(--accent); margin-bottom: 10px;">Husband Qualities:</div>
         <p>${data.husband}</p>
         <div class="subtitle" style="color: var(--secondary); margin-top: 15px; margin-bottom: 10px;">Ideal Match:</div>
         <p>${data.compatibility.join(', ')}</p>
+        <button id="reset-keys-btn" style="margin-top:20px; background:none; border:1px solid var(--text-dim); color:var(--text-dim); padding:5px 10px; border-radius:5px; cursor:pointer; font-size:0.7rem;">Reset Keys</button>
     `;
+    // Add reset listener
+    document.getElementById('reset-keys-btn').addEventListener('click', () => {
+        localStorage.clear();
+        location.reload();
+    });
 }
 // Save Settings
-document.getElementById('save-settings').addEventListener('click', () => {
-    const gKey = document.getElementById('gemini-key').value;
-    const sKey = document.getElementById('sarvam-key').value;
-    
-    if (gKey && sKey) {
-        localStorage.setItem('gemini_key', gKey);
-        localStorage.setItem('sarvam_key', sKey);
-        state.keys.gemini = gKey;
-        state.keys.sarvam = sKey;
-        settingsModal.classList.add('hidden');
-        updateUI();
-    } else {
-        alert("Please provide both keys.");
-    }
-});
+const saveBtn = document.getElementById('save-settings');
+if (saveBtn) {
+    saveBtn.addEventListener('click', () => {
+        const gKey = document.getElementById('gemini-key').value.trim();
+        const sKey = document.getElementById('sarvam-key').value.trim();
+        
+        if (gKey && sKey) {
+            console.log("Saving keys to localStorage...");
+            localStorage.setItem('gemini_key', gKey);
+            localStorage.setItem('sarvam_key', sKey);
+            state.keys.gemini = gKey;
+            state.keys.sarvam = sKey;
+            settingsModal.classList.add('hidden');
+            updateUI();
+            alert("Settings Saved! You can now start the assessment.");
+        } else {
+            alert("Please provide both keys.");
+        }
+    });
+}
 // Voice Interaction Logic
 let mediaRecorder;
 let audioChunks = [];
