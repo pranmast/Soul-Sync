@@ -1,5 +1,5 @@
 /**
- * Soul-Sync 2026: Thane Friend Edition
+ * Soul-Sync 2026: Thane Friend Edition (Bug Fixed)
  */
 
 let state = {
@@ -24,21 +24,24 @@ function init() {
     updateUI();
 }
 
-// 1. Voice Control
 async function handleVoice() {
     if (state.isRecording) return;
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        const recorder = new MediaRecorder(stream);
+        // Use standard webm/opus for broad compatibility
+        const recorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
         let chunks = [];
 
         recorder.ondataavailable = (e) => chunks.push(e.data);
-        recorder.onstop = () => processAudio(new Blob(chunks, { type: 'audio/webm' }));
+        recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'audio/webm' });
+            processAudio(blob);
+        };
 
         recorder.start();
         state.isRecording = true;
         voiceBtn.classList.add('recording');
-        transcriptEl.textContent = "...";
+        transcriptEl.textContent = "ऐकतोय... (Listening)";
 
         voiceBtn.onclick = () => {
             recorder.stop();
@@ -46,45 +49,52 @@ async function handleVoice() {
             voiceBtn.classList.remove('recording');
             voiceBtn.onclick = handleVoice;
         };
-    } catch (e) { alert("Mic required."); }
+    } catch (e) { alert("Mic required for our chat!"); }
 }
 voiceBtn.onclick = handleVoice;
 
-// 2. Audio Processing (Sarvam STT)
 async function processAudio(blob) {
     const formData = new FormData();
-    formData.append('file', blob, 'audio.webm');
-    formData.append('model', 'saaras:v3');
-    // We send multilang code so Sarvam detects the language
+    // Correcting the file naming and field for Sarvam v3
+    formData.append('file', blob, 'input_audio.webm');
+    formData.append('model', 'saaras:v1'); // v1 is often more stable for 'mul' detection
     formData.append('language_code', 'mul'); 
 
     try {
         const res = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
-            headers: { 'api-subscription-key': state.keys.sarvam },
+            headers: { 
+                'api-subscription-key': state.keys.sarvam 
+                // Note: Do NOT set Content-Type header manually with FormData
+            },
             body: formData
         });
+
+        if (!res.ok) throw new Error(`STT Error: ${res.status}`);
+        
         const data = await res.json();
         if (data.transcript) {
-            transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> ${data.transcript}`;
+            transcriptEl.innerHTML = `<span style="color:var(--accent)">तुम्ही:</span> ${data.transcript}`;
             state.history.push({ role: "user", content: data.transcript });
             getFriendResponse(data.transcript);
         }
-    } catch (e) { transcriptEl.textContent = "STT Error."; }
+    } catch (e) { 
+        console.error(e);
+        transcriptEl.textContent = "माफ करा, आवाज नीट ऐकू आला नाही. (Audio processing failed)"; 
+    }
 }
 
-// 3. AI Brain (Gemini 3.1 Flash)
 async function getFriendResponse(userText) {
+    transcriptEl.textContent = "विचार करतोय... (Thinking)";
     const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${state.keys.gemini}`;
 
-    const systemPrompt = `You are Soul-Sync, a close personal friend living in Thane, Maharashtra. 
-    1. Respond strictly in the SAME LANGUAGE the user spoke (Marathi, Hindi, or English).
-    2. Be warm, casual, and highly informative. 
-    3. If asked about weather/places, use your 2026 knowledge (Thane is warm/humid, Upvan Lake, Viviana Mall, etc.).
-    4. If appropriate, suggest a YouTube video or a recipe.
-    5. Silently track personality (MBTI).
-    OUTPUT ONLY JSON: 
-    {"friend_reply": "text", "detected_mbti": "XXXX or Analyzing", "media": {"type": "youtube/weather/recipe", "title": "name", "link_or_info": "data"}}`;
+    const systemPrompt = `You are Soul-Sync, a chill friend from Thane. 
+    1. Reply in the EXACT language user uses (Marathi, Hindi, or English). 
+    2. Don't be a robot. If they ask about Thane events or weather, give real info.
+    3. If they want suggestions, show a YouTube link or a recipe in the media card.
+    4. Keep it conversational. No "Question 1...". 
+    5. If they say "Ok bye", wish them well.
+    OUTPUT JSON: {"friend_reply": "text", "detected_mbti": "XXXX", "media": {"type": "youtube/weather/event", "title": "name", "link_or_info": "data"}}`;
 
     try {
         const response = await fetch(API_URL, {
@@ -93,32 +103,28 @@ async function getFriendResponse(userText) {
             body: JSON.stringify({ contents: [{ parts: [{ text: `${systemPrompt}\nUser: ${userText}\nHistory: ${JSON.stringify(state.history)}` }] }] })
         });
         const data = await response.json();
-        const jsonStr = data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0];
-        const res = JSON.parse(jsonStr);
+        const res = JSON.parse(data.candidates[0].content.parts[0].text.match(/\{[\s\S]*\}/)[0]);
 
-        // Update Personality
-        if (res.detected_mbti !== "Analyzing") {
+        // Update UI
+        if (res.detected_mbti && res.detected_mbti !== "Analyzing") {
             state.mbti = res.detected_mbti;
             localStorage.setItem('user_mbti', state.mbti);
             updateUI();
         }
 
-        // Show Media Card if AI suggested something
         if (res.media) {
             mediaCard.classList.remove('hidden');
-            document.getElementById('media-label').textContent = res.media.type.toUpperCase();
             mediaContent.innerHTML = `<div style="color:var(--accent); font-weight:bold;">${res.media.title}</div><div>${res.media.link_or_info}</div>`;
         }
 
-        // Final Response
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${res.friend_reply}`;
         state.history.push({ role: "assistant", content: res.friend_reply });
 
-        // TTS (Matches language automatically)
+        // TTS
         const speech = new SpeechSynthesisUtterance(res.friend_reply);
         window.speechSynthesis.speak(speech);
 
-    } catch (e) { transcriptEl.textContent = "AI Friend is offline."; }
+    } catch (e) { transcriptEl.textContent = "AI connection dropped."; }
 }
 
 function updateUI() {
