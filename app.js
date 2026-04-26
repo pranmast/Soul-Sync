@@ -244,20 +244,24 @@ const GEMINI_MODELS = [
 // ✅ FIX: Use a compatible structure for v1 models
 // ─── 8. Gemini AI — The Final Working Config ─────────────────────────────────
 async function callGemini(contents, systemInstruction) {
-    // We use v1beta because your key requires it, but with the correct model string
-    const modelPath = "v1beta/models/gemini-1.5-flash";
-    const url = `https://generativelanguage.googleapis.com/${modelPath}:generateContent?key=${state.keys.gemini}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
 
-    const body = { 
-        contents: contents,
-        // ✅ CRITICAL FIX: v1beta MUST use 'systemInstruction' (CamelCase)
-        systemInstruction: { 
-            parts: [{ text: systemInstruction }] 
+    const body = {
+        // ✅ FIX: Ensure contents parts are strictly { text: "..." }
+        contents: contents.map(c => ({
+            role: c.role === 'assistant' ? 'model' : c.role,
+            parts: [{ text: String(c.parts?.[0]?.text || c.content || "") }]
+        })),
+        
+        // ✅ CRITICAL FIX: The structure for systemInstruction in v1beta
+        systemInstruction: {
+            role: "system", // Some tiers require this role declaration
+            parts: [{ text: systemInstruction }]
         },
+
         generationConfig: {
             temperature: 0.7,
-            // Forces JSON output so parsing doesn't fail
-            responseMimeType: "application/json" 
+            responseMimeType: "application/json"
         }
     };
 
@@ -271,11 +275,9 @@ async function callGemini(contents, systemInstruction) {
         const data = await res.json();
 
         if (!res.ok) {
-            console.error("Gemini Details:", data);
-            throw new Error(data.error?.message || "API connection failed");
+            console.error("Full API Error Object:", JSON.stringify(data, null, 2));
+            throw new Error(data.error?.message || "Check Console for structure error");
         }
-
-        if (!data.candidates?.[0]) throw new Error("No response from AI");
 
         return data.candidates[0].content.parts[0].text;
     } catch (e) {
