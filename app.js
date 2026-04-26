@@ -171,7 +171,7 @@ async function processAudio(blob) {
         const data = await res.json();
         if (data.transcript) {
             transcriptEl.innerHTML = `<span style="color:var(--accent)">You:</span> ${data.transcript}`;
-            state.history.push({ role: "user", content: data.transcript });
+            // ✅ FIX: Don't push to history yet — getFriendResponse will push both turns together
             getFriendResponse(data.transcript);
         } else {
             transcriptEl.textContent = "Didn't catch that. Try speaking again.";
@@ -190,7 +190,8 @@ const GEMINI_MODELS = [
     "v1beta/models/gemini-1.5-flash",
     "v1beta/models/gemini-pro"
 ];
-async function callGemini(prompt) {
+// ✅ FIX: Accept structured contents array for proper multi-turn conversation
+async function callGemini(contents) {
     for (const modelPath of GEMINI_MODELS) {
         try {
             console.log("Trying:", modelPath);
@@ -199,7 +200,7 @@ async function callGemini(prompt) {
                 {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                    body: JSON.stringify({ contents })
                 }
             );
             const data = await res.json();
@@ -216,26 +217,32 @@ async function callGemini(prompt) {
 // ─── 9. AI Brain — Friend Response ───────────────────────────────────────────
 async function getFriendResponse(userText) {
     transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> Thinking...`;
-    const systemPrompt = `You are Soul-Sync, a personal friend from Thane, Maharashtra.
+    // ✅ FIX: Build proper multi-turn contents array for Gemini
+    // System instruction is the first user turn, then alternating user/model turns
+    const systemInstruction = `You are Soul-Sync, a personal friend from Thane, Maharashtra.
     Today is Sunday, April 26, 2026 and it is hot outside (41°C).
-    
     Rules:
     1. Reply in the SAME LANGUAGE as the user (Marathi, Hindi, or English).
     2. Be warm, deep and personal. Reference local spots if helpful (Viviana Mall, Upvan Lake, Masunda Lake, Yeoor Hills).
-    3. Analyze MBTI from the conversation (Introvert/Extrovert, Sensing/Intuition, Thinking/Feeling, Judging/Perceiving).
+    3. Analyze MBTI from the conversation.
     4. Suggest a YouTube video or activity if it fits naturally.
     5. Stay in character until user says "Ok bye".
-    
-    Conversation so far: ${JSON.stringify(state.history)}
-    
     Return EXACTLY this JSON (no extra text):
-    {
-        "reply": "Your warm response here",
-        "mbti": "4-letter type if 85% confident, else Analyzing",
-        "media": {"title": "Optional suggestion title", "info": "Brief info or leave empty"}
-    }`;
+    {"reply": "...", "mbti": "4-letter or Analyzing", "media": {"title": "...", "info": "..."} }`;
+    // Build contents: system → past history → current user message
+    const contents = [
+        { role: "user",  parts: [{ text: systemInstruction }] },
+        { role: "model", parts: [{ text: '{"reply": "Understood! I am Soul-Sync, your Thane friend. Ready.", "mbti": "Analyzing", "media": {"title": "", "info": ""}}' }] },
+        // Past conversation turns
+        ...state.history.map(h => ({
+            role: h.role === 'user' ? 'user' : 'model',
+            parts: [{ text: h.content }]
+        })),
+        // Current user message
+        { role: "user", parts: [{ text: userText }] }
+    ];
     try {
-        const rawText = await callGemini(`${systemPrompt}\nUser: ${userText}`);
+        const rawText = await callGemini(contents);
         const jsonMatch = rawText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("Response format error");
         const result = JSON.parse(jsonMatch[0]);
@@ -253,6 +260,8 @@ async function getFriendResponse(userText) {
                 <p style="margin-top:5px; color:var(--text-dim)">${result.media.info}</p>`;
         }
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
+        // ✅ FIX: Now push BOTH turns together after response is received
+        state.history.push({ role: "user",      content: userText });
         state.history.push({ role: "assistant", content: result.reply });
         speak(result.reply);
     } catch (e) {
