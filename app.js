@@ -218,24 +218,29 @@ async function analyzePersonality() {
             throw new Error(data.error?.message || `Gemini Error ${response.status}`);
         }
         if (!data.candidates || !data.candidates[0]) {
-            throw new Error("No response from AI. Check your Google API key.");
+            throw new Error("No response from AI. This usually means your Google API Key is invalid or restricted.");
         }
         const rawText = data.candidates[0].content.parts[0].text;
-        const cleanJson = rawText.replace(/```json|```/g, "").trim();
-        const result = JSON.parse(cleanJson);
-        if (result.detected_mbti !== "Analyzing") {
+        console.log("Gemini Raw Response:", rawText);
+        // Robust JSON extraction: Find the first { and last }
+        const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) {
+            throw new Error("AI response was not in the correct format. Try speaking again.");
+        }
+        const result = JSON.parse(jsonMatch[0]);
+        if (result.detected_mbti && result.detected_mbti !== "Analyzing") {
             state.mbti = result.detected_mbti;
             localStorage.setItem('user_mbti', result.detected_mbti);
             updateUI();
         }
-        const fullResponse = `${result.response}. ${result.next_question}`;
+        const fullResponse = `${result.response || ""}. ${result.next_question || ""}`;
         transcriptEl.innerHTML = `<strong>Soul-Sync:</strong> ${fullResponse}`;
         state.history.push({ role: "assistant", content: fullResponse });
         
         speak(fullResponse);
     } catch (err) {
-        console.error("Gemini API Error", err);
-        transcriptEl.textContent = "I'm having trouble thinking. Try again.";
+        console.error("Soul-Sync Error Log:", err);
+        transcriptEl.textContent = `Error: ${err.message}`;
     }
 }
 init();
