@@ -50,15 +50,17 @@
         <div id="settings-modal" class="hidden">
             <div class="card" style="width: 90%; max-width: 400px;">
                 <h2 style="margin-bottom: 20px;">AI Configuration</h2>
-                <div class="input-group">
-                    <label>Google Gemini Key</label>
-                    <input type="password" id="gemini-key" placeholder="Paste Gemini Key">
-                </div>
-                <div class="input-group">
-                    <label>Sarvam AI Key</label>
-                    <input type="password" id="sarvam-key" placeholder="Paste Sarvam Key">
-                </div>
-                <button id="save-settings" class="btn-primary">Save & Initialize</button>
+                <form id="settings-form">
+                    <div class="input-group">
+                        <label>Google Gemini Key</label>
+                        <input type="password" id="gemini-key" placeholder="Paste Gemini Key" autocomplete="current-password">
+                    </div>
+                    <div class="input-group">
+                        <label>Sarvam AI Key</label>
+                        <input type="password" id="sarvam-key" placeholder="Paste Sarvam Key" autocomplete="current-password">
+                    </div>
+                    <button type="submit" id="save-settings" class="btn-primary">Save & Initialize</button>
+                </form>
             </div>
         </div>
     </div>
