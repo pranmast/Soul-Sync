@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soul-Sync | AI Personal Companion</title>
-    <!-- Inline SVG favicon — no 404 error -->
+    <title>Soul-Sync | AI Companion</title>
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>💜</text></svg>">
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
@@ -13,57 +12,52 @@
     <div class="container">
         <header>
             <h1>Soul-Sync AI</h1>
-            <p class="subtitle">Your personal guide to personality & life.</p>
+            <p class="subtitle">Personality Architecture & Deep Connection</p>
         </header>
+
         <main id="dashboard">
             <div class="card profile-card">
-                <div class="label">Identity Architecture</div>
+                <div class="label">Identity Mapping</div>
                 <div class="type-display">
                     <div id="mbti-type" class="mbti-badge">Analyzing...</div>
                     <p id="mbti-desc" class="subtitle">Talk to me to map your vibe.</p>
                 </div>
                 <div id="traits-list"></div>
             </div>
-            <div id="media-card" class="card hidden">
-                <div class="label" id="media-label">Recommended for you</div>
-                <div id="media-content" class="media-grid"></div>
-            </div>
+
             <div class="voice-btn-container">
-                <button id="voice-btn" class="voice-btn" aria-label="Start voice input">
-                    <svg viewBox="0 0 24 24">
-                        <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
-                        <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
-                    </svg>
+                <button id="voice-btn" class="voice-btn">
+                    <svg viewBox="0 0 24 24"><path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/><path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/></svg>
                 </button>
-                <!-- Gender toggle: sets AI voice to opposite gender -->
-                <div class="gender-toggle" id="gender-toggle" title="Toggle your gender — AI voice changes">
+                <div class="gender-toggle" id="gender-toggle">
                     <span id="gender-label">👨 Male</span>
                 </div>
             </div>
+
             <div class="card assessment-card">
-                <div id="transcript" class="subtitle" style="font-style: normal; line-height: 1.5;">
-                    "आणि काय म्हणता? बोला, मी ऐकतोय..."
-                </div>
+                <div id="transcript" class="subtitle">"आणि काय म्हणता? बोला, मी ऐकतोय..."</div>
+            </div>
+
+            <div id="media-card" class="card hidden">
+                <div class="label">Recommended Activity</div>
+                <div id="media-content"></div>
             </div>
         </main>
-        <!-- Settings Modal -->
+
         <div id="settings-modal" class="hidden">
             <div class="card" style="width:90%; max-width:400px;">
-                <h2 style="margin-bottom: 20px; text-align: center;">System Setup</h2>
-                <!-- autocomplete="off" silences the browser DOM warning -->
-                <form id="settings-form" autocomplete="off">
-                    <!-- Hidden username field required by browsers for accessibility -->
-                    <input type="text" id="app-user" name="username" autocomplete="username"
-                           value="soul-sync-user" style="display:none;" aria-hidden="true">
+                <h2 style="text-align:center; margin-bottom:20px;">System Setup</h2>
+                <form id="settings-form" autocomplete="on">
+                    <input type="text" name="username" value="SoulSyncUser" style="display:none;" autocomplete="username">
                     <div class="input-group">
-                        <label for="gemini-key">Google Gemini Key</label>
-                        <input type="password" id="gemini-key" placeholder="AIza..." autocomplete="new-password">
+                        <label>Gemini API Key</label>
+                        <input type="password" id="gemini-key" placeholder="AIza..." autocomplete="current-password">
                     </div>
-                    <div class="input-group" style="margin-top:10px;">
-                        <label for="sarvam-key">Sarvam AI Key</label>
-                        <input type="password" id="sarvam-key" placeholder="sk_..." autocomplete="new-password">
+                    <div class="input-group">
+                        <label>Sarvam API Key</label>
+                        <input type="password" id="sarvam-key" placeholder="sk_..." autocomplete="current-password">
                     </div>
-                    <button type="submit" class="btn-primary" style="margin-top:20px;">Initialize Soul-Sync</button>
+                    <button type="submit" class="btn-primary">Initialize</button>
                 </form>
             </div>
         </div>
