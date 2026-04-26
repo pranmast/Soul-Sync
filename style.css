@@ -1,167 +1,35 @@
-:root {
-    --primary: #6366f1;
-    --secondary: #a855f7;
-    --accent: #22d3ee;
-    --bg-dark: #0f172a;
-    --card-bg: rgba(30, 41, 59, 0.7);
-    --glass-border: rgba(255, 255, 255, 0.1);
-    --text-main: #f8fafc;
-    --text-dim: #94a3b8;
+.controls-card {
+    padding: 15px;
+    margin-bottom: 20px;
+    background: rgba(255, 255, 255, 0.05);
 }
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Outfit', sans-serif;
+
+.controls-row {
+    display: flex;
+    gap: 15px;
 }
-body {
-    background: radial-gradient(circle at top left, #1e1b4b, #0f172a);
-    color: var(--text-main);
-    min-height: 100vh;
-    overflow-x: hidden;
-}
-/* Glassmorphism Container */
-.container {
-    max-width: 500px;
-    margin: 0 auto;
-    padding: 20px;
-}
-header {
-    text-align: center;
-    padding: 40px 0;
-}
-h1 {
-    font-size: 2.5rem;
-    background: linear-gradient(to right, var(--accent), var(--secondary));
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    letter-spacing: -1px;
-}
-.subtitle {
-    color: var(--text-dim);
-    font-size: 0.9rem;
+
+.custom-select {
+    width: 100%;
+    background: #2a2a3e;
+    color: white;
+    border: 1px solid #444;
+    padding: 8px;
+    border-radius: 8px;
     margin-top: 5px;
 }
-/* Dashboard Cards */
-.card {
-    background: var(--card-bg);
-    backdrop-filter: blur(12px);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 24px;
-    margin-bottom: 20px;
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
-    transition: transform 0.3s ease;
-}
-.card:hover {
-    transform: translateY(-5px);
-}
-.type-display {
-    text-align: center;
-    margin: 20px 0;
-}
-.mbti-badge {
-    font-size: 3rem;
-    font-weight: 800;
-    color: var(--accent);
-    text-shadow: 0 0 20px rgba(34, 211, 238, 0.4);
-}
-/* Voice Button */
-.voice-btn-container {
-    display: flex;
-    justify-content: center;
-    margin: 30px 0;
-}
-.voice-btn {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    background: linear-gradient(45deg, var(--primary), var(--secondary));
-    border: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    box-shadow: 0 0 30px rgba(99, 102, 241, 0.5);
-    position: relative;
-    transition: all 0.3s ease;
-}
-.voice-btn:active {
-    transform: scale(0.9);
-}
-.voice-btn.recording {
+
+.hidden { display: none !important; }
+
+/* Pulse animation for recording */
+.recording {
+    background: #ff4b2b !important;
+    box-shadow: 0 0 20px rgba(255, 75, 43, 0.6);
     animation: pulse 1.5s infinite;
 }
+
 @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
-    70% { box-shadow: 0 0 0 20px rgba(99, 102, 241, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
-}
-.voice-btn svg {
-    width: 35px;
-    height: 35px;
-    fill: white;
-}
-/* Compatibility Meter */
-.meter-bg {
-    height: 12px;
-    background: rgba(255, 255, 255, 0.1);
-    border-radius: 10px;
-    overflow: hidden;
-    margin: 15px 0;
-}
-.meter-fill {
-    height: 100%;
-    background: linear-gradient(to right, var(--accent), var(--secondary));
-    width: 75%; /* Dynamic */
-    transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
-}
-/* Section Labels */
-.label {
-    font-size: 0.8rem;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: var(--text-dim);
-    margin-bottom: 10px;
-}
-/* Hidden elements */
-.hidden { display: none !important; }
-/* Settings Modal */
-#settings-modal {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.8);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 100;
-}
-.input-group {
-    margin-bottom: 15px;
-}
-.input-group label {
-    display: block;
-    font-size: 0.8rem;
-    margin-bottom: 5px;
-}
-input {
-    width: 100%;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glass-border);
-    padding: 10px;
-    border-radius: 8px;
-    color: white;
-}
-.btn-primary {
-    background: var(--primary);
-    color: white;
-    border: none;
-    padding: 12px 24px;
-    border-radius: 12px;
-    cursor: pointer;
-    width: 100%;
-    font-weight: 600;
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
 }
