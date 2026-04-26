@@ -205,7 +205,7 @@ async function analyzePersonality() {
         "detected_mbti": "XXXX (The 4-letter type if sure, else 'Analyzing')"
     }`;
     try {
-        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`, {
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
