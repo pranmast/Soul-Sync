@@ -245,16 +245,17 @@ const GEMINI_MODELS = [
 // ─── 8. Gemini AI — The Final Working Config ─────────────────────────────────
 // ─── 8. Gemini AI — The Working Logic ────────────────────────────────────────
 async function callGemini(contents, systemInstruction) {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
+    // ✅ Use the stable 2.5 Flash model
+    const modelId = "gemini-2.5-flash"; 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${state.keys.gemini}`;
 
     const body = {
-        // ✅ Only include systemInstruction if it actually has text
         systemInstruction: {
             parts: [{ text: systemInstruction }]
         },
         contents: contents.map(c => ({
             role: c.role === 'assistant' ? 'model' : c.role,
-            parts: [{ text: c.content || c.parts?.[0]?.text || "" }]
+            parts: [{ text: String(c.content || c.parts?.[0]?.text || "") }]
         })),
         generationConfig: {
             temperature: 0.7,
@@ -262,15 +263,26 @@ async function callGemini(contents, systemInstruction) {
         }
     };
 
-    const res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body)
-    });
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
 
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "API Error");
-    return data.candidates[0].content.parts[0].text;
+        const data = await res.json();
+
+        if (!res.ok) {
+            // If 2.5 isn't available for your key yet, it will log here
+            console.error("Model Error:", data.error?.message);
+            throw new Error(data.error?.message || "Model not found");
+        }
+
+        return data.candidates[0].content.parts[0].text;
+    } catch (e) {
+        console.error("Gemini Fetch Error:", e);
+        throw e;
+    }
 }
 
 // ─── 9. AI Brain — Friend Response ───────────────────────────────────────────
