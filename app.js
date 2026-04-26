@@ -273,6 +273,8 @@ async function speak(text) {
     }
 }
 async function speakMarathi(text) {
+    // Sarvam TTS has a 500 char limit per request — truncate if needed
+    const safeText = text.length > 500 ? text.substring(0, 497) + '...' : text;
     try {
         const res = await fetch('https://api.sarvam.ai/text-to-speech', {
             method: 'POST',
@@ -281,31 +283,37 @@ async function speakMarathi(text) {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                inputs: [text],
+                inputs: [safeText],
                 target_language_code: 'mr-IN',
-                speaker: 'kavya',   // ✅ Valid female voice (bulbul:v3)
+                speaker: 'kavya',
                 pace: 1.0,
                 model: 'bulbul:v3'
             })
         });
         if (!res.ok) {
-            console.warn("Sarvam TTS failed, falling back to browser TTS.");
-            speakEnglish(text); // Fallback
+            // Log the exact error body so we can see what Sarvam is saying
+            const errBody = await res.text();
+            console.error(`Sarvam TTS ${res.status}:`, errBody);
+            transcriptEl.innerHTML += `<br><small style="color:orange">⚠️ TTS Error: ${errBody}</small>`;
+            speakEnglish(safeText); // Fallback to browser TTS
             return;
         }
         const data = await res.json();
-        // Sarvam returns base64-encoded audio
         const audioBase64 = data.audios?.[0];
-        if (!audioBase64) { speakEnglish(text); return; }
-        // Decode base64 and play as audio
+        if (!audioBase64) {
+            console.warn("Sarvam TTS: No audio in response", data);
+            speakEnglish(safeText);
+            return;
+        }
+        // Decode base64 and play
         const audioBlob = base64ToBlob(audioBase64, 'audio/wav');
         const audioUrl = URL.createObjectURL(audioBlob);
         const audio = new Audio(audioUrl);
         audio.play();
-        audio.onended = () => URL.revokeObjectURL(audioUrl); // Free memory
+        audio.onended = () => URL.revokeObjectURL(audioUrl);
     } catch (e) {
-        console.error("Sarvam TTS Error:", e);
-        speakEnglish(text); // Fallback on any error
+        console.error("Sarvam TTS fetch error:", e);
+        speakEnglish(safeText);
     }
 }
 function speakEnglish(text) {
