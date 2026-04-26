@@ -161,9 +161,12 @@ function stopRecording() {
 // Using 'mr-IN' for Marathi auto-detection (handles Marathi + English mixed speech)
 async function processAudio(blob) {
     const formData = new FormData();
-    // ✅ FIX: Use the actual MIME type with correct file extension
-    const ext = (state.recordingMime || 'audio/webm').includes('ogg') ? 'ogg' : 'webm';
-    formData.append('file', blob, `audio.${ext}`);
+    // ✅ FIX: Sarvam accepts 'audio/webm' but NOT 'audio/webm;codecs=opus'
+    // Strip the codec suffix — base MIME type only
+    const baseMime = (state.recordingMime || 'audio/webm').split(';')[0];
+    const ext = baseMime.includes('ogg') ? 'ogg' : 'webm';
+    const sarvamBlob = new Blob([blob], { type: baseMime });
+    formData.append('file', sarvamBlob, `audio.${ext}`);
     formData.append('model', 'saaras:v3');
     formData.append('language_code', 'mr-IN');
     try {
