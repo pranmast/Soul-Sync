@@ -289,40 +289,60 @@ async function callGemini(contents, systemInstruction) {
 async function getFriendResponse(userText) {
     if (!userText.trim()) return;
 
-    // ✅ Define the prompt as a simple string
-    const systemPrompt = `You are Soul-Sync, a friend from Thane. Today is Sunday, April 26, 2026 (41°C). 
-    Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
+    // 1. Move static info (Date/Weather) to a 'context' block
+    // 2. Keep the persona instructions separate
+    const systemPrompt = `You are Soul-Sync, a friend from Thane. 
+    Current Context: Today is Sunday, April 26, 2026. It's a scorching 41°C in Thane.
+    
+    CRITICAL: 
+    - First, answer exactly what the user asked or commented on.
+    - Mention the heat/weather ONLY if it feels natural to the conversation.
+    - Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
-    // ✅ Clean history mapping: Ensure we don't send the system prompt inside 'contents'
+    // Ensure we are using the latest model alias for 2026
+    const modelId = "gemini-3-flash-preview"; 
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelId}:generateContent?key=${state.keys.gemini}`;
+
     const contents = [
         ...state.history.map(h => ({
-            role: h.role,
-            content: h.content
+            role: h.role === 'assistant' ? 'model' : h.role,
+            parts: [{ text: h.content }]
         })),
-        { role: "user", content: userText }
+        { role: "user", parts: [{ text: userText }] }
     ];
 
-    try {
-        // ✅ Pass both clearly
-        const rawText = await callGemini(contents, systemPrompt);
-        
-        const result = JSON.parse(rawText);
-
-        // Update History
-        state.history.push({ role: "user", content: userText });
-        state.history.push({ role: "model", content: result.reply });
-
-        // UI Updates
-        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
-        if (result.mbti && result.mbti !== "Analyzing") {
-            state.mbti = result.mbti;
-            localStorage.setItem('user_mbti', state.mbti);
-            updateUI();
+    const body = {
+        systemInstruction: { parts: [{ text: systemPrompt }] },
+        contents: contents,
+        generationConfig: { 
+            temperature: 0.8, // Slightly higher for a more "natural" friend vibe
+            responseMimeType: "application/json" 
         }
+    };
+
+    try {
+        const res = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message);
+
+        const result = JSON.parse(data.candidates[0].content.parts[0].text);
+
+        // Update history with the ACTUAL user text and AI reply
+        state.history.push({ role: "user", content: userText });
+        state.history.push({ role: "assistant", content: result.reply });
+
+        transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
         speak(result.reply);
+        updateUI(); 
+
     } catch (e) {
         console.error("Gemini Error:", e);
-        transcriptEl.textContent = "Brain error. Check console.";
+        transcriptEl.textContent = "Maza brain garam jhalay (Brain error).";
     }
 }
 
