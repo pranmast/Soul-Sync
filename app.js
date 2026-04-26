@@ -94,9 +94,14 @@ function updateUI() {
 const saveBtn = document.getElementById('save-settings');
 if (saveBtn) {
     saveBtn.addEventListener('click', () => {
-        const gKey = document.getElementById('gemini-key').value.trim();
-        const sKey = document.getElementById('sarvam-key').value.trim();
+        let gKey = document.getElementById('gemini-key').value.trim();
+        let sKey = document.getElementById('sarvam-key').value.trim();
         
+        // Safety Check: Detect swapped keys
+        if (gKey.startsWith('sk_') || sKey.startsWith('AIza')) {
+            alert("⚠️ Detected Swapped Keys!\n\nGoogle keys usually start with 'AIza'.\nSarvam keys usually start with 'sk_'.\nPlease check and swap them!");
+            return;
+        }
         if (gKey && sKey) {
             localStorage.setItem('gemini_key', gKey);
             localStorage.setItem('sarvam_key', sKey);
@@ -208,6 +213,13 @@ async function analyzePersonality() {
             })
         });
         const data = await response.json();
+        
+        if (!response.ok) {
+            throw new Error(data.error?.message || `Gemini Error ${response.status}`);
+        }
+        if (!data.candidates || !data.candidates[0]) {
+            throw new Error("No response from AI. Check your Google API key.");
+        }
         const rawText = data.candidates[0].content.parts[0].text;
         const cleanJson = rawText.replace(/```json|```/g, "").trim();
         const result = JSON.parse(cleanJson);
