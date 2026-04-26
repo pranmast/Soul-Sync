@@ -112,75 +112,65 @@ async function processAudio(blob) {
     } catch (e) { transcriptEl.textContent = "Sarvam STT Error."; }
 }
 
-// ─── AI BRAIN (The "No-More-404" Edition) ───
+/**
+ * Soul-Sync 2026 — Optimized Core
+ * Final Fix for the Gemini 404/400 Error
+ */
+
+// ... (KEEP PERSONALITY_DATA and state variables the same as before) ...
+
+// ─── AI BRAIN (Fixed v1 Schema) ───
 async function callGemini(contents, systemInstruction) {
-    const MODEL_NAMES = [
-        "gemini-1.5-flash-latest",
-        "gemini-1.5-flash",
-        "gemini-2.0-flash-exp",
-        "gemini-pro"
-    ];
-
-    let lastError = "";
-
-    for (const modelName of MODEL_NAMES) {
-        try {
-            console.log(`Trying model: ${modelName}...`);
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent?key=${state.keys.gemini}`;
-            
-            const body = { 
-                contents: contents,
-                systemInstruction: { 
-                    parts: [{ text: systemInstruction }]
-                },
-                generationConfig: {
-                    temperature: 0.7,
-                    responseMimeType: "application/json",
-                }
-            };
-            
-            const res = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
-            });
-
-            const data = await res.json();
-
-            if (res.status === 404) {
-                console.warn(`${modelName} not found, trying next...`);
-                continue; 
-            }
-
-            if (!res.ok) {
-                console.error(`Error with ${modelName}:`, data);
-                lastError = data.error?.message || "Unknown error";
-                continue;
-            }
-
-            return data.candidates[0].content.parts[0].text;
-
-        } catch (e) {
-            console.error(`Fetch failed for ${modelName}:`, e);
-            lastError = e.message;
-        }
-    }
+    // Switching back to v1 (Stable) which is most likely where your key is active
+    const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${state.keys.gemini}`;
     
-    throw new Error(`All models failed. Last error: ${lastError}`);
+    const body = { 
+        contents: contents,
+        // In v1, the model handles system instructions best when passed as a specialized "system" role 
+        // or via the specific system_instruction property if the model supports it.
+        system_instruction: { 
+            parts: [{ text: systemInstruction }]
+        },
+        generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 500,
+            // Only use this if you are sure your key supports the JSON mode in v1
+            // responseMimeType: "application/json" 
+        }
+    };
+    
+    const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    const data = await res.json();
+    
+    if (!res.ok) {
+        console.error("Gemini Error Detail:", data);
+        throw new Error(data.error?.message || "Check API Key Permissions");
+    }
+
+    return data.candidates[0].content.parts[0].text;
 }
 
 async function getFriendResponse(userText) {
     if (!userText.trim()) return;
 
-    const systemPrompt = `You are Soul-Sync, a friend from Thane. 
-    Match the user's language (Marathi/Hindi/English).
+    // Simplified prompt to ensure we stay within JSON limits
+    const systemPrompt = `You are Soul-Sync, a friendly companion from Thane. 
+    Match the user's language (Marathi/Hindi/English). 
     Return ONLY JSON: {"reply": "...", "mbti": "...", "media": {"title": "...", "info": "..."}}`;
 
     const contents = [...state.history, { role: "user", parts: [{ text: userText }] }];
 
     try {
         const raw = await callGemini(contents, systemPrompt);
-        const result = JSON.parse(raw);
+        
+        // Safety: Clean the string in case Gemini adds ```json blocks
+        const cleanJson = raw.replace(/```json/g, "").replace(/```/g, "").trim();
+        const result = JSON.parse(cleanJson);
 
         state.history.push({ role: "user", parts: [{ text: userText }] });
         state.history.push({ role: "model", parts: [{ text: result.reply }] });
@@ -194,10 +184,12 @@ async function getFriendResponse(userText) {
         transcriptEl.innerHTML = `<span style="color:var(--secondary)">Soul-Sync:</span> ${result.reply}`;
         speak(result.reply);
     } catch (e) { 
-        console.error("Brain Error:", e);
-        transcriptEl.textContent = "Check your Gemini API key permissions."; 
+        console.error("Logic Error:", e);
+        transcriptEl.textContent = "I'm having trouble thinking right now. Check console."; 
     }
 }
+
+// ... (KEEP init, updateUI, start/stopRecording, processAudio, and speak the same) ...
 
 // ─── VOICE OUTPUT ───
 async function speak(text) {
