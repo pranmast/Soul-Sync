@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soul-Sync | Personality Architecture</title>
+    <title>Soul-Sync | AI Personal Companion</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
 </head>
@@ -11,29 +11,22 @@
     <div class="container">
         <header>
             <h1>Soul-Sync AI</h1>
-            <div class="header-controls" style="display: flex; gap: 10px; justify-content: center; margin-top: 10px;">
-                <select id="language-select" style="background: var(--card-bg); color: var(--text-dim); border: 1px solid var(--glass-border); border-radius: 8px; padding: 5px 10px; font-size: 0.8rem;">
-                    <option value="en-IN">English</option>
-                    <option value="hi-IN">Hindi</option>
-                    <option value="mr-IN">Marathi</option>
-                </select>
-            </div>
+            <p class="subtitle">Your personal guide to personality & life.</p>
         </header>
 
         <main id="dashboard">
             <div class="card profile-card">
-                <div class="label">Core Personality Type</div>
+                <div class="label">Identity Architecture</div>
                 <div class="type-display">
                     <div id="mbti-type" class="mbti-badge">Analyzing...</div>
-                    <p id="mbti-desc" class="subtitle">Engage in conversation to map your cognitive functions.</p>
+                    <p id="mbti-desc" class="subtitle">Talk to me to map your vibe.</p>
                 </div>
             </div>
 
-            <div class="card traits-card">
-                <div class="label">Behavioral Traits & Dynamics</div>
-                <div id="traits-list" class="traits-content">
-                    <p class="subtitle" style="font-style: italic;">Awaiting behavioral data from conversation...</p>
-                </div>
+            <div id="media-card" class="card hidden">
+                <div class="label" id="media-label">Recommended for you</div>
+                <div id="media-content" class="media-grid">
+                    </div>
             </div>
 
             <div class="voice-btn-container">
@@ -43,24 +36,17 @@
             </div>
 
             <div class="card assessment-card">
-                <div class="label">Live Insights</div>
-                <div id="transcript" class="subtitle">"Tap the mic to begin the analysis..."</div>
+                <div id="transcript" class="subtitle" style="font-style: normal; line-height: 1.5;">"आणि काय म्हणता? बोला, मी ऐकतोय..."</div>
             </div>
         </main>
 
         <div id="settings-modal" class="hidden">
-            <div class="card" style="width: 90%; max-width: 400px;">
-                <h2 style="margin-bottom: 20px; text-align: center;">System Access</h2>
+            <div class="card">
+                <h2 style="margin-bottom: 20px; text-align: center;">System Setup</h2>
                 <form id="settings-form">
-                    <div class="input-group">
-                        <label>Gemini API Key</label>
-                        <input type="password" id="gemini-key" placeholder="Enter key...">
-                    </div>
-                    <div class="input-group">
-                        <label>Sarvam Subscription Key</label>
-                        <input type="password" id="sarvam-key" placeholder="Enter key...">
-                    </div>
-                    <button type="submit" class="btn-primary">Initialize System</button>
+                    <input type="password" id="gemini-key" placeholder="Gemini Key" style="margin-bottom:10px;">
+                    <input type="password" id="sarvam-key" placeholder="Sarvam Key">
+                    <button type="submit" class="btn-primary" style="margin-top:20px;">Initialize</button>
                 </form>
             </div>
         </div>
