@@ -131,7 +131,7 @@ async function startRecording() {
             audioChunks.push(event.data);
         };
         mediaRecorder.onstop = async () => {
-            const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+            const audioBlob = new Blob(audioChunks, { type: 'audio/webm' }); // Chrome records in webm
             processAudio(audioBlob);
         };
         mediaRecorder.start();
@@ -152,8 +152,10 @@ function stopRecording() {
 // API: Sarvam AI (Speech to Text)
 async function processAudio(blob) {
     const formData = new FormData();
-    formData.append('file', blob, 'audio.wav');
-    formData.append('model', 'saaras:v1'); // Standard Sarvam STT model
+    // Use 'audio.webm' as the filename since that is the real format
+    formData.append('file', blob, 'audio.webm');
+    formData.append('model', 'saaras:v3'); 
+    formData.append('language_code', 'mr-IN'); // Optimized for Marathi and English
     try {
         const response = await fetch('https://api.sarvam.ai/speech-to-text', {
             method: 'POST',
@@ -162,6 +164,11 @@ async function processAudio(blob) {
             },
             body: formData
         });
+        if (!response.ok) {
+            const errorBody = await response.text();
+            console.error("Sarvam API Error Body:", errorBody);
+            throw new Error(`HTTP ${response.status}: ${errorBody}`);
+        }
         const data = await response.json();
         if (data.transcript) {
             transcriptEl.textContent = `"${data.transcript}"`;
@@ -169,7 +176,7 @@ async function processAudio(blob) {
         }
     } catch (err) {
         console.error("Sarvam API Error", err);
-        transcriptEl.textContent = "Error: Check your Sarvam API key or internet.";
+        transcriptEl.textContent = "Error: Check your keys or speak longer.";
     }
 }
 // API: Gemini (Personality Analysis)
